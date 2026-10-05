@@ -1,0 +1,12 @@
+{
+  "name": "sgh-proyecto",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start:api": "pnpm --prefix api start:dev",
+    "start:app": "pnpm --prefix app start",
+    "build:api": "pnpm --prefix api build",
+    "build:app": "pnpm --prefix app build",
+    "typecheck:app": "pnpm --prefix app exec tsc --noEmit"
+  }
+}

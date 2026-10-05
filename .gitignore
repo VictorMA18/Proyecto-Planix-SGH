@@ -1,0 +1,18 @@
+# Dependencias y builds
+node_modules/
+dist/
+.expo/
+web-build/
+
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Configuración local de agentes (puede contener claves)
+.agents/mcp_config.json
+.claude/settings.local.json
+.gemini/
+
+# Sistema
+.DS_Store
