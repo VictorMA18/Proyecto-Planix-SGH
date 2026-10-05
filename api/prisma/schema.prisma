@@ -1,0 +1,147 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum RolMiembro {
+  SUPER_ADMIN
+  ADMIN
+  SUPERVISOR
+  EMPLEADO
+
+  @@map("rol_miembro")
+}
+
+enum EstadoMiembro {
+  ACTIVO
+  INVITADO
+  INACTIVO
+
+  @@map("estado_miembro")
+}
+
+enum EstadoJornada {
+  DENTRO
+  FUERA
+
+  @@map("estado_jornada")
+}
+
+enum TipoMovimientoAsistencia {
+  ENTRADA
+  SALIDA
+
+  @@map("tipo_movimiento_asistencia")
+}
+
+enum EstadoAsignacionTarea {
+  PENDIENTE
+  VISTA
+  COMPLETADA
+
+  @@map("estado_asignacion_tarea")
+}
+
+enum TipoNotificacion {
+  TAREA_ASIGNADA
+  QR_DISPONIBLE
+  RECORDATORIO_SALIDA
+  SISTEMA
+
+  @@map("tipo_notificacion")
+}
+
+enum PlataformaDispositivo {
+  ANDROID
+  IOS
+  WEB
+
+  @@map("plataforma_dispositivo")
+}
+
+enum EstadoInvitacion {
+  PENDIENTE
+  ACEPTADA
+  EXPIRADA
+  CANCELADA
+
+  @@map("estado_invitacion")
+}
+
+model Organizacion {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre       String   @db.VarChar(150)
+  slug         String   @unique @db.VarChar(160)
+  zonaHoraria  String   @default("America/Lima") @map("zona_horaria") @db.VarChar(64)
+  logoUrl      String?  @map("logo_url")
+  activa       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  miembros     MiembroOrganizacion[]
+  invitaciones Invitacion[]
+
+  @@map("organizaciones")
+}
+
+model Usuario {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkId   String   @unique @map("clerk_id") @db.VarChar(255)
+  nombre    String   @db.VarChar(150)
+  email     String   @unique @db.VarChar(255)
+  avatarUrl String?  @map("avatar_url")
+  activo    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  miembros     MiembroOrganizacion[]
+  invitaciones Invitacion[]          @relation("InvitadoPor")
+
+  @@index([email], map: "idx_usuarios_email")
+  @@index([clerkId], map: "idx_usuarios_clerk_id")
+  @@map("usuarios")
+}
+
+model MiembroOrganizacion {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId      String        @map("usuario_id") @db.Uuid
+  organizacionId String        @map("organizacion_id") @db.Uuid
+  rol            RolMiembro    @default(EMPLEADO)
+  estado         EstadoMiembro @default(INVITADO)
+  fechaIngreso   DateTime?     @map("fecha_ingreso") @db.Timestamptz
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, organizacionId])
+  @@index([organizacionId], map: "idx_miembros_organizacion_org")
+  @@index([usuarioId], map: "idx_miembros_organizacion_usuario")
+  @@map("miembros_organizacion")
+}
+
+model Invitacion {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizacionId String           @map("organizacion_id") @db.Uuid
+  email          String           @db.VarChar(255)
+  rol            RolMiembro       @default(EMPLEADO)
+  token          String           @unique @db.VarChar(255)
+  invitadoPor    String           @map("invitado_por") @db.Uuid
+  estado         EstadoInvitacion @default(PENDIENTE)
+  expiraEn       DateTime         @map("expira_en") @db.Timestamptz
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  invitador    Usuario      @relation("InvitadoPor", fields: [invitadoPor], references: [id])
+
+  @@index([organizacionId], map: "idx_invitaciones_org")
+  @@index([email], map: "idx_invitaciones_email")
+  @@index([token], map: "idx_invitaciones_token")
+  @@map("invitaciones")
+}

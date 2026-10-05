@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sgh_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: sgh
+      POSTGRES_PASSWORD: sgh
+      POSTGRES_DB: sgh
+    ports:
+      - "5434:5432"
+    volumes:
+      - sgh_postgres_data:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: sgh_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: sgh
+      RABBITMQ_DEFAULT_PASS: sgh
+
+volumes:
+  sgh_postgres_data:

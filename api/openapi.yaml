@@ -1,0 +1,1356 @@
+openapi: 3.0.3
+info:
+  title: API - Sistema de Gestión de Horarios (SGH)
+  description: >
+    API REST para el control de asistencia mediante QR, gestión de
+    organizaciones, usuarios con roles, calendario dinámico de tareas
+    y notificaciones.
+  version: 1.0.0
+  contact:
+    name: Equipo SGH
+servers:
+  - url: https://api.sgh.example.com/v1
+    description: Producción
+  - url: https://staging-api.sgh.example.com/v1
+    description: Staging
+  - url: http://localhost:3000/v1
+    description: Desarrollo local
+
+tags:
+  - name: Auth
+    description: Registro, autenticación y sesión
+  - name: Organizaciones
+    description: Gestión de organizaciones (tenants)
+  - name: Miembros
+    description: Gestión de usuarios dentro de una organización
+  - name: Invitaciones
+    description: Invitación de nuevos miembros
+  - name: QR
+    description: Generación de códigos QR diarios
+  - name: Asistencia
+    description: Registro de entrada y salida
+  - name: Tareas
+    description: Calendario dinámico y tareas
+  - name: Notificaciones
+    description: Notificaciones del usuario
+  - name: Reportes
+    description: Reportes de asistencia
+
+security:
+  - bearerAuth: []
+
+paths:
+
+  # =====================================================================
+  # AUTH
+  # La autenticación (credenciales + OAuth 2.0: Google, GitHub, etc.) es
+  # gestionada completamente por Clerk desde el cliente (Expo/Web),
+  # usando sus SDKs oficiales. Este backend NO expone endpoints de
+  # login/registro/refresh propios: solo verifica el JWT emitido por
+  # Clerk en cada request (ver securitySchemes.bearerAuth) y mantiene
+  # sincronizada la tabla local `usuarios` vía webhook.
+  # =====================================================================
+  /webhooks/clerk:
+    post:
+      tags: [Auth]
+      summary: Webhook de Clerk para sincronizar usuarios (user.created, user.updated, user.deleted)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, data]
+              properties:
+                type:
+                  type: string
+                  enum: [user.created, user.updated, user.deleted]
+                data:
+                  type: object
+                  description: Payload de usuario enviado por Clerk
+      responses:
+        '200':
+          description: Evento procesado
+        '400':
+          description: Firma de webhook inválida
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Obtener el perfil del usuario autenticado (según el JWT de Clerk verificado)
+      responses:
+        '200':
+          description: Usuario actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+
+  # =====================================================================
+  # ORGANIZACIONES
+  # =====================================================================
+  /organizaciones:
+    get:
+      tags: [Organizaciones]
+      summary: Listar organizaciones del usuario autenticado
+      responses:
+        '200':
+          description: Lista de organizaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organizacion'
+    post:
+      tags: [Organizaciones]
+      summary: Crear una nueva organización (el creador queda como ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearOrganizacionInput'
+      responses:
+        '201':
+          description: Organización creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+
+  /organizaciones/{organizacionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Organizaciones]
+      summary: Obtener detalle de una organización
+      responses:
+        '200':
+          description: Detalle de la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+        '404':
+          description: No encontrada
+    patch:
+      tags: [Organizaciones]
+      summary: Actualizar configuración de una organización
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarOrganizacionInput'
+      responses:
+        '200':
+          description: Organización actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organizacion'
+
+  # =====================================================================
+  # MIEMBROS
+  # =====================================================================
+  /organizaciones/{organizacionId}/miembros:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Miembros]
+      summary: Listar miembros de la organización
+      parameters:
+        - name: estado
+          in: query
+          schema:
+            $ref: '#/components/schemas/EstadoMiembro'
+        - name: rol
+          in: query
+          schema:
+            $ref: '#/components/schemas/RolMiembro'
+      responses:
+        '200':
+          description: Lista de miembros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Miembro'
+
+  /organizaciones/{organizacionId}/miembros/{miembroId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+      - name: miembroId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Miembros]
+      summary: Actualizar rol o estado de un miembro
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rol:
+                  $ref: '#/components/schemas/RolMiembro'
+                estado:
+                  $ref: '#/components/schemas/EstadoMiembro'
+      responses:
+        '200':
+          description: Miembro actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Miembro'
+    delete:
+      tags: [Miembros]
+      summary: Remover un miembro de la organización
+      responses:
+        '204':
+          description: Miembro removido
+
+  # =====================================================================
+  # INVITACIONES
+  # =====================================================================
+  /organizaciones/{organizacionId}/invitaciones:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    post:
+      tags: [Invitaciones]
+      summary: Invitar a un usuario a la organización
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, rol]
+              properties:
+                email:
+                  type: string
+                  format: email
+                rol:
+                  $ref: '#/components/schemas/RolMiembro'
+      responses:
+        '201':
+          description: Invitación creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitacion'
+
+  /invitaciones/{token}/aceptar:
+    post:
+      tags: [Invitaciones]
+      summary: Aceptar una invitación mediante su token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Invitación aceptada, miembro activado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Miembro'
+        '410':
+          description: Invitación expirada o ya utilizada
+
+  # =====================================================================
+  # QR
+  # =====================================================================
+  /organizaciones/{organizacionId}/qr/hoy:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [QR]
+      summary: Obtener (o generar si no existe) el código QR del día actual
+      responses:
+        '200':
+          description: Código QR vigente para hoy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodigoQR'
+
+  /organizaciones/{organizacionId}/qr:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    post:
+      tags: [QR]
+      summary: Forzar la generación manual del QR del día (solo Admin)
+      responses:
+        '201':
+          description: Código QR generado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodigoQR'
+        '409':
+          description: Ya existe un QR generado para hoy
+
+  # =====================================================================
+  # ASISTENCIA
+  # =====================================================================
+  /asistencia/entrada:
+    post:
+      tags: [Asistencia]
+      summary: >
+        Registrar una entrada escaneando el código QR del día. Cubre dos
+        casos: si el usuario no tiene jornada abierta hoy, crea una nueva
+        `JornadaAsistencia` (primera entrada del día); si ya tiene una
+        jornada en estado `FUERA` (por una salida intermedia), registra un
+        retorno sobre esa misma jornada, validando de nuevo el QR.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: Token leído del código QR
+      responses:
+        '201':
+          description: >
+            Entrada (o retorno) registrado. Devuelve la jornada del día con
+            sus movimientos.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JornadaAsistencia'
+        '400':
+          description: >
+            QR inválido o expirado, o la jornada ya se encuentra en estado
+            `DENTRO` (ya hay un ciclo abierto y debe confirmarse salida
+            antes de una nueva entrada).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /asistencia/salida:
+    post:
+      tags: [Asistencia]
+      summary: >
+        Confirmar una salida (intermedia o final) sobre la jornada del día
+        en curso. No requiere escanear QR. `JornadaAsistencia.hora_fin` se
+        actualiza para reflejar siempre la última salida registrada; si el
+        usuario no vuelve a marcar entrada ese día, esta queda como la
+        salida oficial de la jornada.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                horaSalida:
+                  type: string
+                  format: date-time
+                  description: Opcional. Si se omite, se usa la hora del servidor.
+      responses:
+        '200':
+          description: Salida registrada; devuelve la jornada actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JornadaAsistencia'
+        '404':
+          description: No hay una jornada en estado DENTRO para el usuario hoy
+
+  /asistencia/hoy:
+    get:
+      tags: [Asistencia]
+      summary: Obtener el estado actual de la jornada de hoy del usuario autenticado (incluye sus movimientos)
+      parameters:
+        - name: organizacionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Jornada de hoy del usuario autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JornadaAsistencia'
+        '404':
+          description: El usuario aún no tiene jornada registrada hoy
+
+  /asistencia/historial:
+    get:
+      tags: [Asistencia]
+      summary: Historial de jornadas de asistencia del usuario autenticado
+      parameters:
+        - name: organizacionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Historial paginado de jornadas, cada una con sus movimientos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JornadaAsistenciaPage'
+
+  # =====================================================================
+  # TAREAS
+  # =====================================================================
+  /organizaciones/{organizacionId}/tareas:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Tareas]
+      summary: Listar tareas de la organización (para el calendario)
+      parameters:
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lista de tareas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tarea'
+    post:
+      tags: [Tareas]
+      summary: Crear una tarea (se asigna automáticamente a todos los miembros activos)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearTareaInput'
+      responses:
+        '201':
+          description: Tarea creada y asignada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+
+  /tareas/{tareaId}:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Tareas]
+      summary: Obtener detalle de una tarea
+      responses:
+        '200':
+          description: Detalle de la tarea
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+    patch:
+      tags: [Tareas]
+      summary: Actualizar una tarea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarTareaInput'
+      responses:
+        '200':
+          description: Tarea actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tarea'
+    delete:
+      tags: [Tareas]
+      summary: Eliminar una tarea
+      responses:
+        '204':
+          description: Tarea eliminada
+
+  /tareas/{tareaId}/asignaciones/{usuarioId}:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: usuarioId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Tareas]
+      summary: Actualizar el estado de la asignación de una tarea (vista/completada)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado:
+                  $ref: '#/components/schemas/EstadoAsignacionTarea'
+      responses:
+        '200':
+          description: Asignación actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsignacionTarea'
+
+  /tareas/{tareaId}/adjuntos:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Tareas]
+      summary: Listar el material gráfico/archivos adjuntos de una tarea, ordenados por `orden`
+      responses:
+        '200':
+          description: Lista de adjuntos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TareaAdjunto'
+    post:
+      tags: [Tareas]
+      summary: >
+        Subir una imagen u otro archivo para enriquecer la descripción de
+        una tarea. El cliente envía el archivo al backend (nunca
+        directamente a Cloudinary); el backend valida formato y tamaño,
+        y solo entonces lo sube a Cloudinary usando credenciales que
+        residen únicamente en el servidor. Formatos permitidos: `image/jpeg`,
+        `image/png`, `image/webp`, `image/gif` (tipo `IMAGEN`) y
+        `application/pdf` (tipo `ARCHIVO`). Tamaño máximo: 10 MB.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo:
+                  type: string
+                  format: binary
+                  description: Máximo 10 MB. Formato validado contra la lista permitida según `tipo`.
+                tipo:
+                  $ref: '#/components/schemas/TipoAdjunto'
+                orden:
+                  type: integer
+                  default: 0
+      responses:
+        '201':
+          description: Adjunto subido a Cloudinary y creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TareaAdjunto'
+        '413':
+          description: El archivo excede el tamaño máximo permitido (10 MB)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Formato de archivo no permitido para el `tipo` indicado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /tareas/{tareaId}/adjuntos/{adjuntoId}:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: adjuntoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    delete:
+      tags: [Tareas]
+      summary: >
+        Eliminar un adjunto de una tarea: el backend borra el objeto del
+        arreglo `adjuntos` de la tarea y elimina el asset correspondiente
+        en Cloudinary usando su `public_id` interno.
+      responses:
+        '204':
+          description: Adjunto eliminado
+
+  /me/tareas:
+    get:
+      tags: [Tareas]
+      summary: Listar las tareas asignadas al usuario autenticado
+      parameters:
+        - name: organizacionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Tareas asignadas al usuario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tarea'
+
+  # =====================================================================
+  # NOTIFICACIONES
+  # =====================================================================
+  /organizaciones/{organizacionId}/notificaciones/difusion:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    post:
+      tags: [Notificaciones]
+      summary: >
+        Enviar una notificación a TODOS los miembros activos de la
+        organización (fan-out normalizado: crea 1 evento en
+        `notificaciones` + una fila liviana por miembro en
+        `notificaciones_usuario`, evitando duplicar título/contenido).
+        Mismo patrón usado internamente al crear una tarea, pero
+        disponible aquí para avisos generales no atados a una tarea
+        específica (ej. anuncios administrativos).
+        Requiere rol ADMIN o SUPERVISOR.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [titulo]
+              properties:
+                titulo:
+                  type: string
+                contenido:
+                  type: string
+                tipo:
+                  $ref: '#/components/schemas/TipoNotificacion'
+                  default: SISTEMA
+      responses:
+        '201':
+          description: >
+            Notificaciones creadas (una fila por miembro activo) y
+            despacho de push encolado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notificacionesCreadas:
+                    type: integer
+                    description: Cantidad de miembros activos notificados
+
+  /notificaciones:
+    get:
+      tags: [Notificaciones]
+      summary: Listar notificaciones del usuario autenticado
+      parameters:
+        - name: leida
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Lista de notificaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notificacion'
+
+  /notificaciones/{notificacionId}/leer:
+    patch:
+      tags: [Notificaciones]
+      summary: Marcar una notificación como leída
+      parameters:
+        - name: notificacionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notificación actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notificacion'
+
+  /push-tokens:
+    post:
+      tags: [Notificaciones]
+      summary: Registrar el identificador de notificaciones push del dispositivo/navegador actual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plataforma]
+              properties:
+                plataforma:
+                  $ref: '#/components/schemas/PlataformaDispositivo'
+                expoPushToken:
+                  type: string
+                  description: Requerido cuando plataforma es ANDROID o IOS
+                webPushSubscription:
+                  type: object
+                  description: Requerido cuando plataforma es WEB
+                  properties:
+                    endpoint:
+                      type: string
+                    keys:
+                      type: object
+                      properties:
+                        p256dh:
+                          type: string
+                        auth:
+                          type: string
+      responses:
+        '201':
+          description: Token/suscripción registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushToken'
+
+  # =====================================================================
+  # REPORTES
+  # =====================================================================
+  /organizaciones/{organizacionId}/reportes/asistencia:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Reportes]
+      summary: Reporte de horas trabajadas por usuario en un rango de fechas
+      parameters:
+        - name: desde
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: usuarioId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Reporte generado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ReporteHorasUsuario'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Token de sesión emitido por Clerk. El cliente (Expo/Web) lo obtiene
+        mediante el SDK de Clerk tras login con credenciales u OAuth 2.0,
+        y lo envía en el header Authorization. El backend lo valida usando
+        el SDK backend de Clerk (verificación de firma + expiración).
+
+  parameters:
+    OrganizacionId:
+      name: organizacionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  schemas:
+
+    RolMiembro:
+      type: string
+      enum: [SUPER_ADMIN, ADMIN, SUPERVISOR, EMPLEADO]
+
+    EstadoMiembro:
+      type: string
+      enum: [ACTIVO, INVITADO, INACTIVO]
+
+    EstadoJornada:
+      type: string
+      enum: [DENTRO, FUERA]
+      description: Indica si el próximo movimiento esperado es una SALIDA (DENTRO) o una ENTRADA/retorno (FUERA)
+
+    TipoMovimientoAsistencia:
+      type: string
+      enum: [ENTRADA, SALIDA]
+
+    EstadoAsignacionTarea:
+      type: string
+      enum: [PENDIENTE, VISTA, COMPLETADA]
+
+    TipoAdjunto:
+      type: string
+      enum: [IMAGEN, ARCHIVO]
+
+    TipoNotificacion:
+      type: string
+      enum: [TAREA_ASIGNADA, QR_DISPONIBLE, RECORDATORIO_SALIDA, SISTEMA]
+
+    PlataformaDispositivo:
+      type: string
+      enum: [ANDROID, IOS, WEB]
+
+    Error:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        message:
+          type: string
+        error:
+          type: string
+
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        clerkId:
+          type: string
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Organizacion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        slug:
+          type: string
+        zonaHoraria:
+          type: string
+        logoUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CrearOrganizacionInput:
+      type: object
+      required: [nombre]
+      properties:
+        nombre:
+          type: string
+        zonaHoraria:
+          type: string
+          default: America/Lima
+
+    ActualizarOrganizacionInput:
+      type: object
+      properties:
+        nombre:
+          type: string
+        zonaHoraria:
+          type: string
+        logoUrl:
+          type: string
+
+    Miembro:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        estado:
+          $ref: '#/components/schemas/EstadoMiembro'
+        fechaIngreso:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Invitacion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        estado:
+          type: string
+          enum: [PENDIENTE, ACEPTADA, EXPIRADA, CANCELADA]
+        expiraEn:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CodigoQR:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizacionId:
+          type: string
+          format: uuid
+        fecha:
+          type: string
+          format: date
+        token:
+          type: string
+        expiraEn:
+          type: string
+          format: date-time
+        qrImageUrl:
+          type: string
+          description: URL o data-URI de la imagen del QR renderizada
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MovimientoAsistencia:
+      type: object
+      description: Evento puntual de escaneo (ENTRADA) o confirmación de salida (SALIDA) dentro de una jornada.
+      properties:
+        id:
+          type: string
+          format: uuid
+        jornadaId:
+          type: string
+          format: uuid
+        tipo:
+          $ref: '#/components/schemas/TipoMovimientoAsistencia'
+        hora:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JornadaAsistencia:
+      type: object
+      description: >
+        Jornada de un usuario en una fecha determinada. `horaInicio` es el
+        primer escaneo del día; `horaFin` refleja siempre la última salida
+        registrada. Entre ambas puede haber varios `movimientos`
+        (pares ENTRADA/SALIDA intermedios).
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+          format: uuid
+        organizacionId:
+          type: string
+          format: uuid
+        codigoQrId:
+          type: string
+          format: uuid
+        fecha:
+          type: string
+          format: date
+        horaInicio:
+          type: string
+          format: date-time
+        horaFin:
+          type: string
+          format: date-time
+          nullable: true
+          description: Hora de la última salida registrada; null mientras el usuario esté DENTRO sin haber salido aún
+        estadoActual:
+          $ref: '#/components/schemas/EstadoJornada'
+        movimientos:
+          type: array
+          description: Movimientos ENTRADA/SALIDA de la jornada, en orden cronológico
+          items:
+            $ref: '#/components/schemas/MovimientoAsistencia'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JornadaAsistenciaPage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/JornadaAsistencia'
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        total:
+          type: integer
+
+    Tarea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        organizacionId:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+        enlace:
+          type: string
+          nullable: true
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+          nullable: true
+        creadoPor:
+          type: string
+          format: uuid
+        adjuntos:
+          type: array
+          description: Material gráfico/archivos que enriquecen la descripción, ordenados por `orden`
+          items:
+            $ref: '#/components/schemas/TareaAdjunto'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TareaAdjunto:
+      type: object
+      description: >
+        Imagen u otro archivo adjunto a la descripción de una tarea. Se
+        almacena embebido dentro del registro de la tarea (arreglo
+        `adjuntos`), no como un recurso independiente. El archivo en sí
+        vive en Cloudinary; el identificador interno de Cloudinary
+        (`public_id`) no se expone al cliente, se usa solo en el backend
+        para eliminar el asset cuando se borra el adjunto.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Identificador generado por el backend al crear el adjunto (no es una fila de base de datos)
+        tipo:
+          $ref: '#/components/schemas/TipoAdjunto'
+        url:
+          type: string
+          description: secure_url pública devuelta por Cloudinary
+        nombreArchivo:
+          type: string
+          nullable: true
+        tamanoBytes:
+          type: integer
+          maximum: 10485760
+          description: Tamaño en bytes, máximo 10 MB (10485760), validado por el backend antes de subir el archivo
+        orden:
+          type: integer
+          description: Posición de despliegue cuando la tarea tiene varios adjuntos
+        createdAt:
+          type: string
+          format: date-time
+
+    CrearTareaInput:
+      type: object
+      required: [titulo, fechaInicio]
+      properties:
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        enlace:
+          type: string
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+
+    ActualizarTareaInput:
+      type: object
+      properties:
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        enlace:
+          type: string
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+
+    AsignacionTarea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tareaId:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+          format: uuid
+        estado:
+          $ref: '#/components/schemas/EstadoAsignacionTarea'
+        completadoEn:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          description: Fecha en que se generó la asignación
+        updatedAt:
+          type: string
+          format: date-time
+
+    Notificacion:
+      type: object
+      description: >
+        Vista combinada (JOIN) entre el evento de notificación y el
+        estado de lectura del usuario autenticado. El id expuesto aquí
+        corresponde al registro de destinatario (notificaciones_usuario),
+        ya que es sobre ese registro que se marca "leída".
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: id del registro notificaciones_usuario (destinatario)
+        notificacionId:
+          type: string
+          format: uuid
+          description: id del evento de notificación (contenido compartido)
+        tipo:
+          $ref: '#/components/schemas/TipoNotificacion'
+        titulo:
+          type: string
+        contenido:
+          type: string
+          nullable: true
+        referenciaId:
+          type: string
+          format: uuid
+          nullable: true
+        leida:
+          type: boolean
+        leidaEn:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PushToken:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+          format: uuid
+        plataforma:
+          $ref: '#/components/schemas/PlataformaDispositivo'
+        expoPushToken:
+          type: string
+          nullable: true
+        webPushSubscription:
+          type: object
+          nullable: true
+          properties:
+            endpoint:
+              type: string
+            keys:
+              type: object
+              properties:
+                p256dh:
+                  type: string
+                auth:
+                  type: string
+        activo:
+          type: boolean
+        ultimaVezUsado:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ReporteHorasUsuario:
+      type: object
+      properties:
+        usuarioId:
+          type: string
+          format: uuid
+        nombreUsuario:
+          type: string
+        fecha:
+          type: string
+          format: date
+        horasTrabajadas:
+          type: number
+          format: float
