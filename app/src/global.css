@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .font-extrabold {
+    font-family: 'DMSans_800ExtraBold' !important;
+    font-weight: normal !important;
+  }
+  .font-bold {
+    font-family: 'DMSans_700Bold' !important;
+    font-weight: normal !important;
+  }
+  .font-semibold {
+    font-family: 'DMSans_600SemiBold' !important;
+    font-weight: normal !important;
+  }
+  .font-medium {
+    font-family: 'DMSans_500Medium' !important;
+    font-weight: normal !important;
+  }
+  .font-regular {
+    font-family: 'DMSans_400Regular' !important;
+    font-weight: normal !important;
+  }
+  .font-sans {
+    font-family: 'DMSans_400Regular' !important;
+  }
+}
