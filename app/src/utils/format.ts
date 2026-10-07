@@ -18,3 +18,29 @@ export function formatDate(iso: string | null): string {
 export function formatMembers(count: number): string {
   return `${count} ${count === 1 ? 'miembro activo' : 'miembros activos'}`;
 }
+
+/** `19_320_000 ms` → `5h 22m`. */
+export function formatDuration(ms: number): string {
+  const totalMinutes = Math.max(0, Math.floor(ms / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+/** Fecha ISO → `hoy`, `ayer` o `hace N días`. */
+export function formatDaysAgo(iso: string, now = Date.now()): string {
+  const days = Math.floor((now - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  return `hace ${days} días`;
+}
+
+/** `2026-10-07T14:35:00Z` → `7 oct, 14:35` (hora local). */
+export function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString('es', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
