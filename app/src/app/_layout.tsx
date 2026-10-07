@@ -18,6 +18,8 @@ import {
   DMSans_800ExtraBold,
 } from '@expo-google-fonts/dm-sans';
 
+import { QueryProvider } from '../providers/QueryProvider';
+
 cssInterop(SafeAreaView, { className: 'style' });
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
@@ -89,10 +91,12 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <InitialLayout />
-      </SafeAreaProvider>
+      <QueryProvider>
+        <SafeAreaProvider>
+          <StatusBar style="dark" />
+          <InitialLayout />
+        </SafeAreaProvider>
+      </QueryProvider>
     </ClerkProvider>
   );
 }
