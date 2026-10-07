@@ -16,6 +16,8 @@ import {
   OtpDigitInputs,
   AppButton,
 } from '../../components/ui';
+import { verifyCodeSchema } from '../../schemas/auth.schema';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 export default function VerifyCodeScreen() {
   const { signIn } = useSignIn();
@@ -30,10 +32,10 @@ export default function VerifyCodeScreen() {
     lastName?: string;
   }>();
 
-  const flow = params.flow || 'sign-in';
-  const identifier = params.identifier || 'carlos.mendez@acmecorp.com';
-  const firstNameParam = params.firstName || '';
-  const lastNameParam = params.lastName || '';
+  const { pendingVerification, clearPendingVerification } = useAuthStore();
+
+  const flow = params.flow || pendingVerification?.flow || 'sign-in';
+  const identifier = params.identifier || pendingVerification?.identifier || '';
 
   const [code, setCode] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -44,17 +46,22 @@ export default function VerifyCodeScreen() {
     setErrorMessage('');
     setSuccessMessage('');
 
-    const cleanCode = code.trim();
-    if (!cleanCode || cleanCode.length === 0) {
-      setErrorMessage('Ingresa el código de 6 dígitos enviado a tu correo.');
+    // Validar el código de 6 dígitos con Zod schema
+    const validationResult = verifyCodeSchema.safeParse({ code });
+
+    if (!validationResult.success) {
+      const issue = validationResult.error.issues[0];
+      setErrorMessage(issue?.message || 'Código de 6 dígitos inválido.');
       return;
     }
+
+    const { code: validCode } = validationResult.data;
 
     setIsLoading(true);
 
     try {
       if (flow === 'sign-up') {
-        const verifyRes = await signUp.verifications.verifyEmailCode({ code: cleanCode });
+        const verifyRes = await signUp.verifications.verifyEmailCode({ code: validCode });
 
         if (verifyRes?.error) {
           setErrorMessage(verifyRes.error.message || 'Código de verificación incorrecto.');
@@ -64,6 +71,7 @@ export default function VerifyCodeScreen() {
 
         if (signUp.status === 'complete') {
           setSuccessMessage('¡Código verificado con éxito!');
+          clearPendingVerification();
           if (signUp.createdSessionId && setActive) {
             await setActive({ session: signUp.createdSessionId });
           }
@@ -72,13 +80,14 @@ export default function VerifyCodeScreen() {
         }
       } else {
         if (signIn.emailCode?.verifyCode) {
-          await signIn.emailCode.verifyCode({ code: cleanCode });
+          await signIn.emailCode.verifyCode({ code: validCode });
         } else if (signIn.mfa?.verifyEmailCode) {
-          await signIn.mfa.verifyEmailCode({ code: cleanCode });
+          await signIn.mfa.verifyEmailCode({ code: validCode });
         }
 
         if (signIn.status === 'complete') {
           setSuccessMessage('¡Código verificado! Accediendo...');
+          clearPendingVerification();
           if (signIn.createdSessionId && setActive) {
             await setActive({ session: signIn.createdSessionId });
           }
@@ -130,7 +139,7 @@ export default function VerifyCodeScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Emblem Identity con fondo morado más amplio */}
+          {/* Emblem Identity con fondo morado */}
           <View className="my-6 items-center">
             <View
               style={{ borderCurve: 'continuous' }}
@@ -155,7 +164,7 @@ export default function VerifyCodeScreen() {
               Hemos enviado un código seguro de 6 dígitos a tu correo registrado:
             </Text>
 
-            {/* Email Badge limpio (sin icono de lápiz) */}
+            {/* Email Badge */}
             <View
               style={{ borderCurve: 'continuous' }}
               className="flex-row items-center bg-tertiary px-4 py-2.5 rounded-full mb-5 max-w-full"
@@ -190,10 +199,16 @@ export default function VerifyCodeScreen() {
               </View>
             ) : null}
 
-            {/* OTP Digit Boxes Component (casillas más anchas y alargadas) */}
-            <OtpDigitInputs value={code} onChangeText={setCode} />
+            {/* OTP Digit Boxes Component */}
+            <OtpDigitInputs
+              value={code}
+              onChangeText={(text) => {
+                setCode(text);
+                if (errorMessage) setErrorMessage('');
+              }}
+            />
 
-            {/* Reenviar código sin contador de tiempo */}
+            {/* Reenviar código */}
             <View className="flex-row items-center my-4 flex-wrap justify-center">
               <Text className="text-sm text-neutral-muted font-sans">
                 ¿No recibiste el correo?{' '}
@@ -209,7 +224,7 @@ export default function VerifyCodeScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Botón Principal "Verificar código" sin truncado */}
+            {/* Botón Principal "Verificar código" */}
             <AppButton
               title="Verificar código"
               onPress={handleVerify}

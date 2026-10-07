@@ -1,6 +1,6 @@
-import { useSignUp, useOAuth } from '@clerk/expo';
+import { useSignUp } from '@clerk/expo';
 import { useRouter } from 'expo-router';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
   Text,
@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 
 import {
   AppLogoHeader,
@@ -19,14 +18,20 @@ import {
   AppButton,
   SocialButtons,
 } from '../../components/ui';
+import { signUpSchema, SignUpInput, PASSWORD_MIN_LENGTH } from '../../schemas/auth.schema';
+import { useGoogleSignIn } from '../../hooks/use-google-sign-in';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 WebBrowser.maybeCompleteAuthSession();
 
+type FieldErrors = Partial<Record<keyof SignUpInput, string>>;
+
 export default function SignUpScreen() {
   const { signUp, fetchStatus } = useSignUp();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const google = useGoogleSignIn();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { setPendingVerification } = useAuthStore();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -35,57 +40,65 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const isSubmitting = fetchStatus === 'fetching';
 
-  React.useEffect(() => {
+  useEffect(() => {
     void WebBrowser.warmUpAsync();
     return () => {
       void WebBrowser.coolDownAsync();
     };
   }, []);
 
-  const handleGoogleSignUp = useCallback(async () => {
-    setErrorMessage('');
-    try {
-      const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl: Linking.createURL('/', { scheme: 'app' }),
-      });
-
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Ocurrió un error al registrarse con Google.');
+  const clearFieldError = (field: keyof SignUpInput) => {
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
     }
-  }, [startOAuthFlow]);
+  };
 
   const handleSignUp = async () => {
     setErrorMessage('');
-    const trimmedFirstName = firstName.trim();
-    const trimmedLastName = lastName.trim();
-    const trimmedEmail = emailAddress.trim();
+    setFieldErrors({});
 
-    if (!trimmedFirstName || !trimmedLastName || !trimmedEmail || !password) {
-      setErrorMessage('Por favor completa todos los campos requeridos.');
+    // Validar entradas con Zod schema
+    const validationResult = signUpSchema.safeParse({
+      firstName,
+      lastName,
+      emailAddress,
+      password,
+      confirmPassword,
+    });
+
+    if (!validationResult.success) {
+      const errors: FieldErrors = {};
+      validationResult.error.issues.forEach((issue) => {
+        const fieldName = issue.path[0] as keyof SignUpInput;
+        if (fieldName && !errors[fieldName]) {
+          errors[fieldName] = issue.message;
+        }
+      });
+      setFieldErrors(errors);
       return;
     }
 
-    if (password !== confirmPassword) {
-      setErrorMessage('Las contraseñas no coinciden.');
-      return;
-    }
+    const {
+      firstName: validFirstName,
+      lastName: validLastName,
+      emailAddress: validEmail,
+      password: validPassword,
+    } = validationResult.data;
 
     try {
-      // 1. Crear el objeto SignUp oficial en Clerk con firstName, lastName y unsafeMetadata
+      // 1. Crear la cuenta en Clerk con datos validados
       const createRes = await signUp.create({
-        emailAddress: trimmedEmail,
-        password,
-        firstName: trimmedFirstName,
-        lastName: trimmedLastName,
+        emailAddress: validEmail,
+        password: validPassword,
+        firstName: validFirstName,
+        lastName: validLastName,
         unsafeMetadata: {
-          firstName: trimmedFirstName,
-          lastName: trimmedLastName,
+          firstName: validFirstName,
+          lastName: validLastName,
         },
       });
 
@@ -96,7 +109,7 @@ export default function SignUpScreen() {
         return;
       }
 
-      // 2. Enviar el código de verificación por correo usando verifications.sendEmailCode
+      // 2. Enviar el código de verificación por correo
       const sendRes = await signUp.verifications.sendEmailCode();
       if (sendRes?.error) {
         setErrorMessage(
@@ -105,14 +118,22 @@ export default function SignUpScreen() {
         return;
       }
 
-      // 3. Navegar a la pantalla de verificación OTP
+      // 3. Guardar estado de verificación pendiente en Zustand
+      setPendingVerification({
+        identifier: validEmail,
+        flow: 'sign-up',
+        firstName: validFirstName,
+        lastName: validLastName,
+      });
+
+      // 4. Navegar a la pantalla de verificación OTP
       router.push({
         pathname: '/(auth)/verify',
         params: {
           flow: 'sign-up',
-          identifier: trimmedEmail,
-          firstName: trimmedFirstName,
-          lastName: trimmedLastName,
+          identifier: validEmail,
+          firstName: validFirstName,
+          lastName: validLastName,
         },
       });
     } catch (err: any) {
@@ -150,13 +171,13 @@ export default function SignUpScreen() {
             style={{ borderCurve: 'continuous' }}
             className="w-full bg-cardBg rounded-3xl p-6 shadow-xl shadow-primary/10 border border-tertiary/60"
           >
-            {errorMessage ? (
+            {errorMessage || google.error ? (
               <View
                 style={{ borderCurve: 'continuous' }}
                 className="bg-red-100 border border-red-500 rounded-2xl p-3.5 mb-4"
               >
                 <Text className="text-red-800 text-sm font-sans font-medium">
-                  {errorMessage}
+                  {errorMessage || google.error}
                 </Text>
               </View>
             ) : null}
@@ -168,7 +189,11 @@ export default function SignUpScreen() {
               leftIcon="person-outline"
               placeholder="Ej. Carlos"
               value={firstName}
-              onChangeText={setFirstName}
+              onChangeText={(text) => {
+                setFirstName(text);
+                clearFieldError('firstName');
+              }}
+              error={fieldErrors.firstName}
             />
 
             {/* Campo Apellidos */}
@@ -178,7 +203,11 @@ export default function SignUpScreen() {
               leftIcon="person-outline"
               placeholder="Ej. Méndez"
               value={lastName}
-              onChangeText={setLastName}
+              onChangeText={(text) => {
+                setLastName(text);
+                clearFieldError('lastName');
+              }}
+              error={fieldErrors.lastName}
             />
 
             {/* Campo Correo Corporativo */}
@@ -188,7 +217,11 @@ export default function SignUpScreen() {
               leftIcon="mail-outline"
               placeholder="tu@empresa.com"
               value={emailAddress}
-              onChangeText={setEmailAddress}
+              onChangeText={(text) => {
+                setEmailAddress(text);
+                clearFieldError('emailAddress');
+              }}
+              error={fieldErrors.emailAddress}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -196,13 +229,17 @@ export default function SignUpScreen() {
             {/* Campo Contraseña */}
             <AppInput
               label="Contraseña"
-              requiredText="Mínimo 15 caracteres"
+              requiredText={`Mínimo ${PASSWORD_MIN_LENGTH} caracteres`}
               leftIcon="lock-closed-outline"
               rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
               onRightIconPress={() => setShowPassword(!showPassword)}
               placeholder="Crea una contraseña segura"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                clearFieldError('password');
+              }}
+              error={fieldErrors.password}
               secureTextEntry={!showPassword}
             />
 
@@ -210,7 +247,7 @@ export default function SignUpScreen() {
             <AppInput
               label="Confirmar contraseña"
               statusBadge={
-                confirmPassword.length > 0
+                confirmPassword.length > 0 && !fieldErrors.confirmPassword
                   ? password === confirmPassword
                     ? { text: 'Coinciden', type: 'success' }
                     : { text: 'No coinciden', type: 'error' }
@@ -219,7 +256,11 @@ export default function SignUpScreen() {
               leftIcon="sync-outline"
               placeholder="Repite la contraseña"
               value={confirmPassword}
-              onChangeText={setConfirmPassword}
+              onChangeText={(text) => {
+                setConfirmPassword(text);
+                clearFieldError('confirmPassword');
+              }}
+              error={fieldErrors.confirmPassword}
               secureTextEntry={!showPassword}
             />
 
@@ -235,7 +276,8 @@ export default function SignUpScreen() {
             <SocialButtons
               dividerText="O REGÍSTRATE CON"
               buttonText="Regístrate con Google"
-              onGooglePress={handleGoogleSignUp}
+              onGooglePress={google.signInWithGoogle}
+              disabled={google.isLoading}
             />
           </View>
 

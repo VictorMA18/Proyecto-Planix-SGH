@@ -1,6 +1,6 @@
-import { useSignIn, useOAuth, useClerk } from '@clerk/expo';
+import { useSignIn, useClerk } from '@clerk/expo';
 import { useRouter } from 'expo-router';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollView,
   Text,
@@ -12,7 +12,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import * as Linking from 'expo-linking';
 
 import {
   AppLogoHeader,
@@ -20,60 +19,97 @@ import {
   AppButton,
   SocialButtons,
 } from '../../components/ui';
+import { loginSchema } from '../../schemas/auth.schema';
+import { useGoogleSignIn } from '../../hooks/use-google-sign-in';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const { signIn, fetchStatus } = useSignIn();
   const { setActive } = useClerk();
-  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
+  const google = useGoogleSignIn();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [emailAddress, setEmailAddress] = useState('');
+  const { rememberedEmail, rememberMe: storedRememberMe, hasHydrated, setRememberedEmail } =
+    useAuthStore();
+
+  const [emailAddress, setEmailAddress] = useState(rememberedEmail || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(storedRememberMe);
   const [errorMessage, setErrorMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ emailAddress?: string; password?: string }>({});
 
   const isSubmitting = fetchStatus === 'fetching';
 
-  React.useEffect(() => {
+  useEffect(() => {
     void WebBrowser.warmUpAsync();
     return () => {
       void WebBrowser.coolDownAsync();
     };
   }, []);
 
-  const handleGoogleSignIn = useCallback(async () => {
-    setErrorMessage('');
-    try {
-      const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl: Linking.createURL('/', { scheme: 'app' }),
-      });
+  // El store persistido se hidrata de forma asíncrona: aplicar el correo recordado al terminar.
+  useEffect(() => {
+    if (!hasHydrated) return;
+    setEmailAddress((current) => current || rememberedEmail);
+    setRememberMe(storedRememberMe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasHydrated]);
 
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-      }
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Ocurrió un error al autenticar con Google.');
+  const handleEmailChange = (text: string) => {
+    setEmailAddress(text);
+    if (fieldErrors.emailAddress) {
+      setFieldErrors((prev) => ({ ...prev, emailAddress: undefined }));
     }
-  }, [startOAuthFlow]);
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    if (fieldErrors.password) {
+      setFieldErrors((prev) => ({ ...prev, password: undefined }));
+    }
+  };
 
   const handleSignIn = async () => {
     setErrorMessage('');
-    if (!emailAddress || !password) {
-      setErrorMessage('Por favor ingresa tu correo corporativo y contraseña.');
+    setFieldErrors({});
+
+    // Validar entradas con Zod schema
+    const validationResult = loginSchema.safeParse({
+      emailAddress,
+      password,
+    });
+
+    if (!validationResult.success) {
+      const errors: { emailAddress?: string; password?: string } = {};
+      validationResult.error.issues.forEach((issue) => {
+        const fieldName = issue.path[0] as 'emailAddress' | 'password';
+        if (fieldName && !errors[fieldName]) {
+          errors[fieldName] = issue.message;
+        }
+      });
+      setFieldErrors(errors);
       return;
     }
 
+    const { emailAddress: validEmail, password: validPassword } = validationResult.data;
+
     try {
-      const { error } = await signIn.password({ emailAddress, password });
+      const { error } = await signIn.password({
+        emailAddress: validEmail,
+        password: validPassword,
+      });
 
       if (error) {
         setErrorMessage(error.message || 'Error al iniciar sesión. Revisa tus credenciales.');
         return;
       }
+
+      // Guardar preferencia de email en Zustand
+      setRememberedEmail(validEmail, rememberMe);
 
       if (signIn.status === 'complete') {
         if (signIn.createdSessionId && setActive) {
@@ -88,7 +124,7 @@ export default function LoginScreen() {
 
         router.push({
           pathname: '/(auth)/verify',
-          params: { flow: 'sign-in', identifier: emailAddress },
+          params: { flow: 'sign-in', identifier: validEmail },
         });
       } else {
         setErrorMessage('Se requiere acción adicional para iniciar sesión.');
@@ -129,13 +165,13 @@ export default function LoginScreen() {
             style={{ borderCurve: 'continuous' }}
             className="w-full bg-cardBg rounded-3xl p-6 shadow-xl shadow-primary/10 border border-tertiary/60"
           >
-            {errorMessage ? (
+            {errorMessage || google.error ? (
               <View
                 style={{ borderCurve: 'continuous' }}
                 className="bg-red-100 border border-red-500 rounded-2xl p-3.5 mb-4"
               >
                 <Text className="text-red-800 text-sm font-sans font-medium">
-                  {errorMessage}
+                  {errorMessage || google.error}
                 </Text>
               </View>
             ) : null}
@@ -147,7 +183,8 @@ export default function LoginScreen() {
               leftIcon="mail-outline"
               placeholder="ejemplo@acmecorp.com"
               value={emailAddress}
-              onChangeText={setEmailAddress}
+              onChangeText={handleEmailChange}
+              error={fieldErrors.emailAddress}
               keyboardType="email-address"
               autoCapitalize="none"
             />
@@ -161,7 +198,8 @@ export default function LoginScreen() {
               onRightIconPress={() => setShowPassword(!showPassword)}
               placeholder="••••••••"
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
+              error={fieldErrors.password}
               secureTextEntry={!showPassword}
             />
 
@@ -212,7 +250,8 @@ export default function LoginScreen() {
             <SocialButtons
               dividerText="O CONTINÚA CON"
               buttonText="Iniciar sesión con Google"
-              onGooglePress={handleGoogleSignIn}
+              onGooglePress={google.signInWithGoogle}
+              disabled={google.isLoading}
             />
           </View>
 
