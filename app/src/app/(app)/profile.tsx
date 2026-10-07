@@ -11,6 +11,7 @@ import { AppButton, GoogleLogo, ScreenHeader, UserAvatar } from '@/components/ui
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
 import { useProfileImage } from '@/hooks/use-profile-image';
+import { DEFAULT_TAB_HREF } from '@/constants/navigation';
 import { useActiveMembership } from '@/hooks/use-active-membership';
 import { useMemberships } from '@/services/organizations';
 
@@ -204,7 +205,7 @@ export default function ProfileScreen() {
                 isActive={membership.organizacion.id === activeOrganizationId}
                 onPress={() => {
                   setActiveOrganization(membership.organizacion.id);
-                  router.back();
+                  router.navigate(DEFAULT_TAB_HREF);
                 }}
               />
             ))

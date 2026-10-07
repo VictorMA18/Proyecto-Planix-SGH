@@ -9,6 +9,7 @@ import { AppButton, ScreenHeader, UserAvatar } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveMembership } from '@/hooks/use-active-membership';
 import { useClerkProfileSync, useUserDisplay } from '@/hooks/use-clerk-profile';
+import { DEFAULT_TAB_HREF } from '@/constants/navigation';
 import { useMemberships } from '@/services/organizations';
 
 export default function OrganizationsScreen() {
@@ -86,7 +87,10 @@ export default function OrganizationsScreen() {
               key={membership.id}
               membership={membership}
               isActive={membership.organizacion.id === activeOrganizationId}
-              onPress={() => setActiveOrganization(membership.organizacion.id)}
+              onPress={() => {
+                setActiveOrganization(membership.organizacion.id);
+                router.navigate(DEFAULT_TAB_HREF);
+              }}
             />
           ))
         )}
