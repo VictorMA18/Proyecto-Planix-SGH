@@ -37,6 +37,10 @@
    - El token se normaliza (mayúsculas, sin espacios).
    - Solo lo puede aceptar el usuario cuyo correo coincide con el de la invitación (`403` en otro caso).
    - `404` si el código no existe, `410` si ya se usó, fue cancelado o expiró (en ese caso pasa a `EXPIRADA`), `409` si ya es miembro activo.
+3. **Dos formas de invitar** (pantalla «Equipo y Miembros», botón «Invitar nuevo miembro», solo `ADMIN`):
+   - **Personal:** se indica el correo y el rol; el código solo lo puede usar ese correo.
+   - **Código genérico** *(proyectado)*: se indica el rol y la vigencia (5, 10 o 30 minutos); cualquier persona que lo use entra con ese rol.
+   - En ambos casos un modal muestra el código para copiarlo o compartirlo.
 
 ### 6. Creación de tarea con asignación automática
 1. `ADMIN` o `SUPERVISOR` crea una `Tarea`.

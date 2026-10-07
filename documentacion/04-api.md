@@ -34,8 +34,8 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 |---|---|
 | Auth | `GET /auth/me`, `POST /webhooks/clerk` |
 | Organizaciones | `GET /me/membresias` (membresías del usuario con su organización, rol y n.º de miembros activos), `POST /organizaciones` |
-| Invitaciones | `POST /organizaciones/{id}/invitaciones` (devuelve el `token`), `POST /invitaciones/{token}/aceptar` |
-| Miembros | Gestión de miembros y roles |
+| Invitaciones | `POST /organizaciones/{id}/invitaciones` (devuelve el `token`), `POST /invitaciones/{token}/aceptar`; proyectados: `POST /invitaciones/{id}/reenviar`, `POST /organizaciones/{id}/codigos-invitacion` |
+| Miembros | Gestión de miembros y roles; proyectado: `GET /organizaciones/{id}/equipo` (miembros + invitaciones pendientes, con búsqueda, filtro y paginación) |
 | QR | Obtener / generar el QR del día |
 | Asistencia | Entrada, salida, jornada de hoy, historial |
 | Tareas | CRUD de tareas, adjuntos (`multipart/form-data`), estado de asignación |
@@ -49,3 +49,13 @@ Todo endpoint nuevo se define primero en `api/openapi.yaml`; luego se implementa
 ## Estado de implementación
 
 Implementados en el backend: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`, `POST /organizaciones/{id}/invitaciones` y `POST /invitaciones/{token}/aceptar`. El resto de endpoints del contrato se implementa por fases (ver `11-roadmap.md`).
+
+### Proyectados (contrato definido, sin backend)
+
+La pantalla «Equipo y Miembros» de la app ya funciona con datos de ejemplo que respetan estos contratos, para cambiarlos por la API real sin tocar la UI:
+
+- `GET /organizaciones/{id}/equipo?q&filtro&page&pageSize` → `PaginaEquipo` (`items` con `tipo: MIEMBRO | INVITACION`, `total`, `page`, `pageSize` y `conteos` por filtro).
+- `POST /invitaciones/{id}/reenviar` → renueva la vigencia de una invitación pendiente.
+- `POST /organizaciones/{id}/codigos-invitacion` → código genérico (rol + vigencia de 5, 10 o 30 minutos).
+
+Para implementarlos habrá que ajustar el modelo: `invitaciones.email` pasaría a ser opcional y haría falta controlar usos y vigencia del código genérico (o una tabla `codigos_invitacion`). Hasta entonces `schema.sql` y Prisma no cambian.

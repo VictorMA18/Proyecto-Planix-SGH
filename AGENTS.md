@@ -84,3 +84,13 @@ Cualquier desarrollo de interfaz móvil o web debe consultar y aplicar estrictam
 - **Stitch como Referencia**: Mantener la fidelidad al diseño de Stitch adaptándolo a patrones móviles reales y seguros.
 - **Explicación previa**: Antes de realizar cambios importantes en UI, indicar brevemente qué skill de Expo se está aplicando y por qué.
 
+
+## 10. Datos y estado en la app (Zod, Zustand, TanStack Query)
+
+Toda pantalla de la app (`app/`) debe usar estas tres tecnologías, cada una para lo suyo. No las reemplaces por `useState` manual ni por validaciones sueltas.
+
+- **Zod — todo esquema.** Formularios (`schema.safeParse(...)` con errores por campo, como en `login.tsx`), respuestas de la API (`schema.parse(...)` en la capa de servicio) y filtros. Los tipos se infieren con `z.infer`: no escribas a mano interfaces de datos que ya tienen esquema. Los esquemas viven en `src/schemas/<dominio>.schema.ts` y se reexportan en `src/schemas/index.ts`. Mensajes de error en español.
+- **Zustand — estado local y de UI.** Filtros, búsqueda, página, preferencias y organización activa. Stores en `src/stores/use<Nombre>Store.ts`. Persiste solo preferencias, con `persistStorage` (`src/stores/storage.ts`) y `partialize`. **No guardes en Zustand datos que vienen del servidor.**
+- **TanStack Query — estado remoto.** Un hook por recurso en `src/services/<dominio>.ts`. Las claves incluyen `userId` y `organizacionId` para que no se mezclen datos entre cuentas u organizaciones; las mutaciones invalidan las consultas afectadas.
+- **Mocks.** Mientras no exista el endpoint, los datos de ejemplo viven en `src/mocks/` y **solo** los consume `src/services/`, con la misma firma y la misma forma (validada con Zod) que tendrá la respuesta real, y un comentario `Backend: <MÉTODO> <ruta>` en cada función. Las pantallas y los componentes nunca importan `src/mocks/`; así el cambio a la API real se hace solo en el servicio.
+- **Contract-first.** Todo endpoint proyectado se define primero en `api/openapi.yaml` y se marca como «proyectado» en `documentacion/04-api.md` hasta que se implemente.

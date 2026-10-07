@@ -305,6 +305,99 @@ paths:
         '410':
           description: Invitación expirada o ya utilizada
 
+  /organizaciones/{organizacionId}/equipo:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Miembros]
+      summary: "[PROYECTADO] Listar el equipo (miembros e invitaciones pendientes) con búsqueda, filtro y paginación"
+      description: >
+        Lectura unificada que alimenta la pantalla «Equipo y Miembros». Mezcla miembros
+        (`tipo: MIEMBRO`) e invitaciones pendientes (`tipo: INVITACION`). Aún no implementado:
+        la app usa datos de ejemplo con esta misma forma.
+      parameters:
+        - name: q
+          in: query
+          description: Texto a buscar en nombre o correo
+          schema:
+            type: string
+        - name: filtro
+          in: query
+          schema:
+            $ref: '#/components/schemas/FiltroEquipo'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Página del equipo y conteos por filtro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaEquipo'
+        '403':
+          description: El usuario no es miembro de la organización
+
+  /invitaciones/{invitacionId}/reenviar:
+    post:
+      tags: [Invitaciones]
+      summary: "[PROYECTADO] Reenviar una invitación pendiente (renueva su vigencia)"
+      parameters:
+        - name: invitacionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Invitación reenviada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvitacionPendiente'
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Invitación inexistente
+        '410':
+          description: La invitación ya fue aceptada o cancelada
+
+  /organizaciones/{organizacionId}/codigos-invitacion:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    post:
+      tags: [Invitaciones]
+      summary: "[PROYECTADO] Generar un código de invitación genérico (cualquier persona con el código se une con el rol indicado)"
+      description: >
+        A diferencia de `POST /organizaciones/{id}/invitaciones`, el código no queda ligado a un
+        correo. Se canjea con `POST /invitaciones/{token}/aceptar`. Aún no implementado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rol, vigenciaMinutos]
+              properties:
+                rol:
+                  type: string
+                  enum: [ADMIN, SUPERVISOR, EMPLEADO]
+                vigenciaMinutos:
+                  type: integer
+                  description: Vigencia del código, en minutos
+                  enum: [5, 10, 30]
+      responses:
+        '201':
+          description: Código generado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodigoInvitacion'
+        '400':
+          description: Datos inválidos
+        '403':
+          description: El usuario no es ADMIN de la organización
+
   # =====================================================================
   # QR
   # =====================================================================
@@ -1109,6 +1202,97 @@ components:
             token:
               type: string
               description: Código de invitación que debe compartirse con el invitado
+
+    FiltroEquipo:
+      type: string
+      enum: [TODOS, ADMIN, SUPERVISOR, EMPLEADO, PENDIENTES]
+
+    InvitacionPendiente:
+      type: object
+      properties:
+        tipo:
+          type: string
+          enum: [INVITACION]
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        enviadaEn:
+          type: string
+          format: date-time
+        expiraEn:
+          type: string
+          format: date-time
+
+    MiembroEquipo:
+      type: object
+      properties:
+        tipo:
+          type: string
+          enum: [MIEMBRO]
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          nullable: true
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        estado:
+          $ref: '#/components/schemas/EstadoMiembro'
+
+    PaginaEquipo:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            oneOf:
+              - $ref: '#/components/schemas/MiembroEquipo'
+              - $ref: '#/components/schemas/InvitacionPendiente'
+            discriminator:
+              propertyName: tipo
+        total:
+          type: integer
+          description: Total de elementos que cumplen el filtro y la búsqueda
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        conteos:
+          type: object
+          description: Cantidad por filtro (ignora la búsqueda)
+          properties:
+            todos:
+              type: integer
+            admins:
+              type: integer
+            supervisores:
+              type: integer
+            empleados:
+              type: integer
+            pendientes:
+              type: integer
+
+    CodigoInvitacion:
+      type: object
+      properties:
+        codigo:
+          type: string
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        expiraEn:
+          type: string
+          format: date-time
 
     CodigoQR:
       type: object
