@@ -20,6 +20,11 @@ export const ThemeStatus = {
   successBg: '#DCFCE7',
   errorBg: '#FEE2E2',
   errorText: '#B91C1C',
+  info: '#2563EB',
+  infoBg: '#DBEAFE',
+  warning: '#F59E0B',
+  warningBg: '#FEF3C7',
+  warningText: '#B45309',
 } as const;
 
 // Estilos por rol de membresía (ADMIN / SUPERVISOR / EMPLEADO).

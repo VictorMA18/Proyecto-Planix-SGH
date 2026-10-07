@@ -8,3 +8,6 @@ export * from './ScreenHeader';
 export * from './UserAvatar';
 export * from './GoogleLogo';
 export * from './FormScreenLayout';
+export * from './ChoiceChips';
+export * from './ComingSoon';
+export * from './SegmentedControl';

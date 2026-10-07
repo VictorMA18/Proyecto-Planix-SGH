@@ -10,6 +10,8 @@ interface UserAvatarProps {
   uri?: string;
   size?: number;
   showStatusDot?: boolean;
+  /** Color del punto de estado (por defecto, verde). */
+  statusColor?: string;
   /** Si se define, muestra el botón de cámara sobre el avatar. */
   onCameraPress?: () => void;
   /** Muestra un indicador de carga sobre la imagen (p. ej. mientras se sube). */
@@ -21,6 +23,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   uri,
   size = 44,
   showStatusDot = false,
+  statusColor = ThemeStatus.success,
   onCameraPress,
   isBusy = false,
 }) => {
@@ -51,7 +54,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 
       {showStatusDot ? (
         <View
-          style={{ backgroundColor: ThemeStatus.success }}
+          style={{ backgroundColor: statusColor }}
           className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white"
         />
       ) : null}
