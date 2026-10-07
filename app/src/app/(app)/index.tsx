@@ -1,171 +1,127 @@
-import { useAuth, useUser, useClerk } from '@clerk/expo';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import {
-  Image,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
-} from 'react-native';
+import React from 'react';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemeColors } from '../../constants/theme';
+import { MembershipsState, OrganizationCard } from '@/components/organizations';
+import { AppButton, ScreenHeader, UserAvatar } from '@/components/ui';
+import { ThemeColors } from '@/constants/theme';
+import { useActiveMembership } from '@/hooks/use-active-membership';
+import { useClerkProfileSync, useUserDisplay } from '@/hooks/use-clerk-profile';
+import { useMemberships } from '@/services/organizations';
 
-export default function HomeScreen() {
-  const { signOut } = useClerk();
-  const { user, isLoaded: isUserLoaded } = useUser();
+export default function OrganizationsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [isSigningOut, setIsSigningOut] = useState(false);
+  const user = useUserDisplay();
+  const membershipsQuery = useMemberships();
+  const memberships = membershipsQuery.data;
+  const { activeOrganizationId, setActiveOrganization } = useActiveMembership(memberships);
 
-  // Sincronización automática de perfil con Clerk User si firstName o lastName no estaban guardados en el objeto User principal
-  React.useEffect(() => {
-    if (!isUserLoaded || !user) return;
+  useClerkProfileSync();
 
-    const metaFirstName = user.unsafeMetadata?.firstName as string | undefined;
-    const metaLastName = user.unsafeMetadata?.lastName as string | undefined;
-
-    const missingFirstName = !user.firstName && !!metaFirstName;
-    const missingLastName = !user.lastName && !!metaLastName;
-
-    if (missingFirstName || missingLastName) {
-      user
-        .update({
-          firstName: user.firstName || metaFirstName,
-          lastName: user.lastName || metaLastName,
-        })
-        .catch(() => {});
-    }
-  }, [isUserLoaded, user]);
-
-  const handleSignOut = async () => {
-    try {
-      setIsSigningOut(true);
-      await signOut();
-      router.replace('/(auth)/login');
-    } catch (err) {
-      console.error('Error al cerrar sesión:', err);
-    } finally {
-      setIsSigningOut(false);
-    }
-  };
-
-  const displayFirstName =
-    user?.firstName ||
-    (user?.unsafeMetadata?.firstName as string) ||
-    'Usuario';
-
-  const displayFullName =
-    user?.fullName ||
-    (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : null) ||
-    (user?.unsafeMetadata?.firstName
-      ? `${user.unsafeMetadata.firstName} ${(user.unsafeMetadata?.lastName as string) || ''}`.trim()
-      : null) ||
-    'Usuario Registrado';
+  const count = memberships?.length ?? 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-screenBg">
-      <ScrollView
-        contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom + 24, 40),
-          paddingTop: Math.max(insets.top + 16, 24),
-        }}
-        contentContainerClassName="px-5 items-center max-w-[480px] w-full self-center"
-        className="w-full flex-1"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header con el Logo Oficial PLANYX */}
-        <View className="items-center mb-6">
-          <View className="w-20 h-20 rounded-3xl bg-cardBg justify-center items-center mb-3 shadow-md shadow-primary/15 border border-purple-500/15">
-            <Image
-              source={require('../../../assets/images/Logo_Planix.png')}
-              className="w-14 h-14"
-              resizeMode="contain"
-            />
-          </View>
-          <Text className="text-3xl font-extrabold text-primary tracking-widest">
-            PLANYX
-          </Text>
-          <Text className="text-xs text-neutral-muted mt-1 font-sans">
-            Sistema de Gestión Horaria & Asistencia
-          </Text>
-        </View>
-
-        {/* Card Principal de Perfil Autenticado */}
-        <View className="w-full bg-cardBg rounded-3xl p-6 shadow-md shadow-primary/10 border border-tertiary/60">
-          <View className="flex-row items-center self-start bg-tertiary px-3 py-1.5 rounded-full mb-4">
-            <View className="w-2 h-2 rounded-full bg-primary mr-2" />
-            <Text className="text-xs font-semibold text-primary font-sans">
-              Sesión Activa — Clerk Auth
-            </Text>
-          </View>
-
-          <Text className="text-2xl font-bold text-neutral mb-1 font-sans">
-            ¡Hola, {displayFirstName}!
-          </Text>
-          <Text className="text-sm text-neutral-muted mb-5 font-sans">
-            Bienvenido al panel principal de PLANYX.
-          </Text>
-
-          <View className="bg-inputBg rounded-2xl p-4 border border-borderBg mb-5">
-            <View className="flex-row justify-between mb-2.5">
-              <Text className="text-xs text-neutral-muted font-sans">
-                Nombre:
-              </Text>
-              <Text className="text-xs font-semibold text-neutral font-sans">
-                {displayFullName}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between mb-2.5">
-              <Text className="text-xs text-neutral-muted font-sans">
-                Correo corporativo:
-              </Text>
-              <Text className="text-xs font-semibold text-neutral font-sans">
-                {user?.primaryEmailAddress?.emailAddress || 'correo@acmecorp.com'}
-              </Text>
-            </View>
-
-            <View className="flex-row justify-between">
-              <Text className="text-xs text-neutral-muted font-sans">
-                Clerk ID:
-              </Text>
-              <Text className="text-xs font-semibold text-neutral font-mono">
-                {user?.id || 'user_id'}
-              </Text>
-            </View>
-          </View>
-
-          <View className="bg-tertiary rounded-2xl p-4 mb-6">
-            <Text className="text-sm font-bold text-secondary mb-1.5 font-sans">
-              Fase 1 — Núcleo Completada
-            </Text>
-            <Text className="text-xs text-neutral leading-5 font-sans">
-              ✔ Interfaces migradas a NativeWind con tipografía DM Sans.{'\n'}
-              ✔ Color primario corporativo #6B46C1 y Google Auth SVG.{'\n'}
-              ✔ Insets dinámicos para Android Nav Bar e inicio de sesión seguro.
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            className={`w-full h-12 bg-neutral rounded-2xl justify-center items-center ${
-              isSigningOut ? 'opacity-60' : 'active:opacity-85'
-            }`}
-            onPress={handleSignOut}
-            disabled={isSigningOut}
-            activeOpacity={0.85}
+    <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
+      <ScreenHeader
+        right={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abrir mi cuenta"
+            onPress={() => router.push('/profile')}
+            style={({ pressed }) => [{ opacity: pressed ? 0.75 : 1 }]}
+            className="min-h-11 flex-row items-center"
           >
-            {isSigningOut ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text className="text-white text-sm font-bold font-sans">
-                Cerrar Sesión
+            <View className="items-end mr-2">
+              <Text numberOfLines={1} className="max-w-[140px] text-xs font-bold text-neutral">
+                {user.fullName}
               </Text>
-            )}
-          </TouchableOpacity>
+              <Text className="text-[11px] text-neutral-muted">Mi Cuenta</Text>
+            </View>
+            <UserAvatar initials={user.initials} uri={user.imageUrl} size={44} showStatusDot />
+          </Pressable>
+        }
+      />
+
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="w-full max-w-[480px] self-center px-5 gap-4"
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom + 24, 32) }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={membershipsQuery.isRefetching}
+            onRefresh={() => membershipsQuery.refetch()}
+            tintColor={ThemeColors.primary}
+            colors={[ThemeColors.primary]}
+          />
+        }
+      >
+        <View>
+          <Text accessibilityRole="header" className="text-3xl font-extrabold text-neutral">
+            Tus organizaciones
+          </Text>
+          <Text className="text-sm text-neutral-muted mt-1">
+            {count > 0
+              ? `Tienes acceso a ${count} ${count === 1 ? 'organización' : 'organizaciones'} con roles independientes. Selecciona con cuál deseas operar hoy.`
+              : 'Aquí aparecerán las organizaciones a las que perteneces.'}
+          </Text>
         </View>
+
+        {membershipsQuery.isPending ? (
+          <MembershipsState status="loading" />
+        ) : membershipsQuery.isError ? (
+          <MembershipsState
+            status="error"
+            message={membershipsQuery.error.message}
+            onRetry={() => membershipsQuery.refetch()}
+          />
+        ) : membershipsQuery.data.length === 0 ? (
+          <MembershipsState status="empty" />
+        ) : (
+          membershipsQuery.data.map((membership) => (
+            <OrganizationCard
+              key={membership.id}
+              membership={membership}
+              isActive={membership.organizacion.id === activeOrganizationId}
+              onPress={() => setActiveOrganization(membership.organizacion.id)}
+            />
+          ))
+        )}
+
+        <View
+          style={{ borderCurve: 'continuous' }}
+          className="flex-row items-center bg-tertiary/60 rounded-2xl p-4"
+        >
+          <Ionicons name="sparkles-outline" size={20} color={ThemeColors.primary} />
+          <View className="flex-1 ml-3">
+            <Text className="text-xs font-bold text-neutral">Gestión Unificada PLANYX</Text>
+            <Text className="text-xs text-neutral-muted">
+              Tus fichajes y permisos se sincronizan en la nube.
+            </Text>
+          </View>
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Unirme con código de invitación"
+          onPress={() => router.push('/join-organization')}
+          style={({ pressed }) => [{ borderCurve: 'continuous', opacity: pressed ? 0.75 : 1 }]}
+          className="min-h-12 flex-row items-center justify-center bg-cardBg border border-borderBg rounded-2xl px-4"
+        >
+          <Ionicons name="key-outline" size={16} color={ThemeColors.neutral} />
+          <Text className="ml-2 text-sm font-bold text-neutral">
+            + Unirme con código de invitación
+          </Text>
+        </Pressable>
+
+        <AppButton
+          title="Crear nueva organización"
+          icon="add-circle-outline"
+          onPress={() => router.push('/create-organization')}
+        />
       </ScrollView>
     </SafeAreaView>
   );
