@@ -1,64 +1,77 @@
-import { Controller, Post, Req, Res, HttpStatus, Logger } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import {
+  BadRequestException,
+  Controller,
+  HttpCode,
+  Logger,
+  Post,
+  Req,
+} from '@nestjs/common';
+import type { RawBodyRequest } from '@nestjs/common';
+import type { Request } from 'express';
+import { UsuariosService } from './usuarios.service';
 
 @Controller('webhooks')
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
+  constructor(private readonly usuarios: UsuariosService) {}
+
   @Post('clerk')
-  async handleClerkWebhook(@Req() req: Request, @Res() res: Response) {
-    const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
-    const isDevelopmentSecret = !webhookSecret || webhookSecret === 'whsec_placeholder';
+  @HttpCode(200)
+  async handleClerkWebhook(@Req() req: RawBodyRequest<Request>) {
+    const evt = await this.verificar(req);
+    this.logger.log(`Evento de Clerk recibido: ${evt.type}`);
 
-    if (isDevelopmentSecret) {
-      this.logger.warn('CLERK_WEBHOOK_SECRET no está configurada o es un placeholder. Procesando webhook en modo desarrollo.');
-    }
-
-    const payload = JSON.stringify(req.body);
-    const headers = req.headers as Record<string, string>;
-
-    let evt: any = req.body;
-
-    // Validación de firma Svix si existe una clave real whsec_...
-    if (webhookSecret && !isDevelopmentSecret) {
-      const svixId = headers['svix-id'];
-      const svixTimestamp = headers['svix-timestamp'];
-      const svixSignature = headers['svix-signature'];
-
-      if (!svixId || !svixTimestamp || !svixSignature) {
-        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Faltan cabeceras Svix de verificación' });
-      }
-      const { Webhook } = await import('svix');
-      const wh = new Webhook(webhookSecret);
-      try {
-        evt = wh.verify(payload, {
-          'svix-id': svixId,
-          'svix-timestamp': svixTimestamp,
-          'svix-signature': svixSignature,
-        });
-      } catch (err: any) {
-        this.logger.error(`Firma de Webhook no válida: ${err.message}`);
-        return res.status(HttpStatus.BAD_REQUEST).json({ error: 'Firma de webhook inválida' });
-      }
-    }
-
-    const eventType = evt?.type || 'unknown';
-    this.logger.log(`Recibido evento de Webhook Clerk: ${eventType}`);
-
-    switch (eventType) {
+    switch (evt.type) {
       case 'user.created':
-        this.logger.log(`Usuario creado en Clerk: ${evt?.data?.id} (${evt?.data?.email_addresses?.[0]?.email_address})`);
-        break;
       case 'user.updated':
-        this.logger.log(`Usuario actualizado en Clerk: ${evt?.data?.id}`);
+        await this.usuarios.sincronizar(evt.data);
         break;
       case 'user.deleted':
-        this.logger.log(`Usuario eliminado en Clerk: ${evt?.data?.id}`);
+        if (evt.data?.id) await this.usuarios.desactivar(evt.data.id);
         break;
       default:
-        this.logger.log(`Evento de Clerk procesado: ${eventType}`);
+        this.logger.debug(`Evento ignorado: ${evt.type}`);
     }
 
-    return res.status(HttpStatus.OK).json({ received: true, type: eventType });
+    return { received: true, type: evt.type };
+  }
+
+  /** Valida la firma Svix sobre el cuerpo crudo; sin secreto real solo se acepta en desarrollo. */
+  private async verificar(req: RawBodyRequest<Request>): Promise<{ type: string; data: any }> {
+    const secret = process.env.CLERK_WEBHOOK_SECRET;
+    const esPlaceholder = !secret || secret === 'whsec_placeholder';
+
+    if (esPlaceholder) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new BadRequestException('Webhook de Clerk sin secreto configurado');
+      }
+      this.logger.warn('CLERK_WEBHOOK_SECRET no configurada: se omite la verificación de firma.');
+      return req.body;
+    }
+
+    const headers = req.headers as Record<string, string>;
+    const svixId = headers['svix-id'];
+    const svixTimestamp = headers['svix-timestamp'];
+    const svixSignature = headers['svix-signature'];
+    if (!svixId || !svixTimestamp || !svixSignature || !req.rawBody) {
+      throw new BadRequestException('Faltan cabeceras Svix de verificación');
+    }
+
+    // Import diferido: svix solo se carga como ESM y no hace falta fuera de este endpoint.
+    const { Webhook } = await import('svix');
+    const cuerpo = req.rawBody.toString('utf8');
+    try {
+      // En svix 2.x `verify` solo valida la firma (no devuelve el payload).
+      new Webhook(secret).verify(cuerpo, {
+        'svix-id': svixId,
+        'svix-timestamp': svixTimestamp,
+        'svix-signature': svixSignature,
+      });
+      return JSON.parse(cuerpo) as { type: string; data: any };
+    } catch (err: any) {
+      this.logger.error(`Firma de webhook no válida: ${err.message}`);
+      throw new BadRequestException('Firma de webhook inválida');
+    }
   }
 }
