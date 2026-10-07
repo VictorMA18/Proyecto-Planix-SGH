@@ -4,3 +4,7 @@ export * from './AppInput';
 export * from './AppLogoHeader';
 export * from './OtpDigitInputs';
 export * from './SocialButtons';
+export * from './ScreenHeader';
+export * from './UserAvatar';
+export * from './GoogleLogo';
+export * from './FormScreenLayout';

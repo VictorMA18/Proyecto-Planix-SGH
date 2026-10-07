@@ -16,6 +16,7 @@ interface AppInputProps extends TextInputProps {
   leftIcon: keyof typeof Ionicons.glyphMap;
   rightIcon?: keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
+  error?: string;
 }
 
 export const AppInput: React.FC<AppInputProps> = ({
@@ -25,6 +26,7 @@ export const AppInput: React.FC<AppInputProps> = ({
   leftIcon,
   rightIcon,
   onRightIconPress,
+  error,
   style,
   ...props
 }) => {
@@ -44,7 +46,7 @@ export const AppInput: React.FC<AppInputProps> = ({
               <Ionicons
                 name={statusBadge.type === 'success' ? 'checkmark-circle' : 'close-circle'}
                 size={12}
-                color={statusBadge.type === 'success' ? '#16A34A' : '#DC2626'}
+                color={statusBadge.type === 'success' ? '#16A34A' : ThemeColors.error}
                 style={{ marginRight: 3 }}
               />
               <Text
@@ -68,15 +70,15 @@ export const AppInput: React.FC<AppInputProps> = ({
         <Ionicons
           name={leftIcon}
           size={19}
-          color={ThemeColors.mutedText}
+          color={error ? ThemeColors.error : ThemeColors.mutedText}
           style={{ position: 'absolute', left: 14, zIndex: 1 }}
         />
         <TextInput
           accessibilityLabel={label}
           style={[{ fontFamily: 'DMSans_400Regular' }, style]}
-          className={`h-12 bg-inputBg border border-borderBg rounded-xl pl-11 pr-4 text-sm text-neutral ${
-            rightIcon ? 'pr-11' : ''
-          }`}
+          className={`h-12 bg-inputBg border rounded-xl pl-11 pr-4 text-sm text-neutral ${
+            error ? 'border-red-500 bg-red-50/30' : 'border-borderBg'
+          } ${rightIcon ? 'pr-11' : ''}`}
           placeholderTextColor={ThemeColors.mutedText}
           {...props}
         />
@@ -87,10 +89,18 @@ export const AppInput: React.FC<AppInputProps> = ({
             onPress={onRightIconPress}
             activeOpacity={0.7}
           >
-            <Ionicons name={rightIcon} size={20} color={ThemeColors.mutedText} />
+            <Ionicons name={rightIcon} size={20} color={error ? ThemeColors.error : ThemeColors.mutedText} />
           </TouchableOpacity>
         ) : null}
       </View>
+      {error ? (
+        <View className="flex-row items-center mt-1.5 ml-1">
+          <Ionicons name="alert-circle-outline" size={13} color="#DC2626" style={{ marginRight: 4 }} />
+          <Text style={{ fontFamily: 'DMSans_500Medium' }} className="text-xs text-red-600">
+            {error}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 };
