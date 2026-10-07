@@ -92,7 +92,10 @@ model Usuario {
   id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clerkId   String   @unique @map("clerk_id") @db.VarChar(255)
   nombre    String   @db.VarChar(150)
+  nombres   String   @default("") @db.VarChar(100)
+  apellidos String   @default("") @db.VarChar(100)
   email     String   @unique @db.VarChar(255)
+  emailVerificado Boolean @default(false) @map("email_verificado")
   avatarUrl String?  @map("avatar_url")
   activo    Boolean  @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz

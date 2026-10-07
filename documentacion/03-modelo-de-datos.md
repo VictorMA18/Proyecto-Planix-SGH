@@ -20,8 +20,11 @@ Fuente de verdad: `database/schema.sql` (PostgreSQL 14+, 12 tablas, 8 enums, sin
 |---|---|---|
 | id | UUID | Identificador único interno |
 | clerk_id | string | Identificador del usuario en Clerk |
-| nombre | string | Nombre completo |
-| email | string | Correo, único |
+| nombre | string | Nombre completo (nombres + apellidos), calculado al sincronizar con Clerk |
+| nombres | string | Nombre(s), tomado de Clerk (`first_name`) |
+| apellidos | string | Apellido(s), tomado de Clerk (`last_name`) |
+| email | string | Correo principal, único |
+| email_verificado | boolean | Si Clerk verificó el correo principal |
 | avatar_url | string, nullable | Foto de perfil |
 | activo | boolean | Estado del usuario |
 | created_at | timestamp | Fecha de registro |

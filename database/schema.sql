@@ -40,8 +40,11 @@ CREATE TABLE organizaciones (
 CREATE TABLE usuarios (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     clerk_id            VARCHAR(255) NOT NULL UNIQUE, -- id del usuario en Clerk (fuente de verdad de auth)
-    nombre              VARCHAR(150) NOT NULL,
+    nombre              VARCHAR(150) NOT NULL,           -- nombre completo (nombres + apellidos), calculado al sincronizar
+    nombres             VARCHAR(100) NOT NULL DEFAULT '', -- first_name de Clerk
+    apellidos           VARCHAR(100) NOT NULL DEFAULT '', -- last_name de Clerk
     email               VARCHAR(255) NOT NULL UNIQUE,
+    email_verificado    BOOLEAN NOT NULL DEFAULT FALSE,   -- estado de verificación del correo principal en Clerk
     avatar_url          TEXT,
     activo              BOOLEAN NOT NULL DEFAULT TRUE,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
