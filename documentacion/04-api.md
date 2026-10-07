@@ -33,8 +33,9 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 | Tag | Contenido |
 |---|---|
 | Auth | `GET /auth/me`, `POST /webhooks/clerk` |
-| Organizaciones | CRUD de organizaciones del usuario |
-| Miembros / Invitaciones | Gestión de miembros, roles e invitaciones |
+| Organizaciones | `GET /me/membresias` (membresías del usuario con su organización, rol y n.º de miembros activos), `POST /organizaciones` |
+| Invitaciones | `POST /organizaciones/{id}/invitaciones` (devuelve el `token`), `POST /invitaciones/{token}/aceptar` |
+| Miembros | Gestión de miembros y roles |
 | QR | Obtener / generar el QR del día |
 | Asistencia | Entrada, salida, jornada de hoy, historial |
 | Tareas | CRUD de tareas, adjuntos (`multipart/form-data`), estado de asignación |
@@ -44,3 +45,7 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 ## Regla contract-first
 
 Todo endpoint nuevo se define primero en `api/openapi.yaml`; luego se implementa. Los schemas de entidad incluyen siempre `createdAt` y `updatedAt`.
+
+## Estado de implementación
+
+Implementados en el backend: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`, `POST /organizaciones/{id}/invitaciones` y `POST /invitaciones/{token}/aceptar`. El resto de endpoints del contrato se implementa por fases (ver `11-roadmap.md`).

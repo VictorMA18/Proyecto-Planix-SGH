@@ -86,6 +86,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Usuario'
+        '401':
+          description: JWT ausente o inválido
 
   # =====================================================================
   # ORGANIZACIONES
@@ -119,6 +121,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Organizacion'
+        '400':
+          description: Datos inválidos (nombre vacío o zona horaria no reconocida)
+        '401':
+          description: JWT ausente o inválido
+
+  /me/membresias:
+    get:
+      tags: [Organizaciones]
+      summary: Listar las membresías activas del usuario autenticado, con su organización y rol en cada una
+      responses:
+        '200':
+          description: Membresías del usuario (una por organización)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Membresia'
+        '401':
+          description: JWT ausente o inválido
 
   /organizaciones/{organizacionId}:
     parameters:
@@ -241,11 +263,21 @@ paths:
                   $ref: '#/components/schemas/RolMiembro'
       responses:
         '201':
-          description: Invitación creada
+          description: >
+            Invitación creada. Incluye `token`, el código que el invitado usa en
+            `POST /invitaciones/{token}/aceptar`. Solo lo recibe quien invita.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Invitacion'
+                $ref: '#/components/schemas/InvitacionCreada'
+        '400':
+          description: Datos inválidos (correo o rol)
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Organización inexistente o el usuario no es miembro
+        '409':
+          description: El correo ya pertenece a un miembro de la organización
 
   /invitaciones/{token}/aceptar:
     post:
@@ -264,6 +296,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Miembro'
+        '403':
+          description: La invitación fue emitida para otro correo
+        '404':
+          description: Código de invitación inexistente
+        '409':
+          description: El usuario ya es miembro activo de la organización
         '410':
           description: Invitación expirada o ya utilizada
 
@@ -919,12 +957,21 @@ components:
           type: string
         nombre:
           type: string
+          description: Nombre completo (nombres + apellidos)
+        nombres:
+          type: string
+        apellidos:
+          type: string
         email:
           type: string
           format: email
+        emailVerificado:
+          type: boolean
         avatarUrl:
           type: string
           nullable: true
+        activo:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -947,6 +994,39 @@ components:
         logoUrl:
           type: string
           nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OrganizacionConMiembros:
+      allOf:
+        - $ref: '#/components/schemas/Organizacion'
+        - type: object
+          properties:
+            miembrosActivos:
+              type: integer
+              description: Cantidad de miembros con estado ACTIVO en la organización
+
+    Membresia:
+      type: object
+      description: Pertenencia del usuario autenticado a una organización, con su rol en ella
+      properties:
+        id:
+          type: string
+          format: uuid
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        estado:
+          $ref: '#/components/schemas/EstadoMiembro'
+        fechaIngreso:
+          type: string
+          format: date-time
+          nullable: true
+        organizacion:
+          $ref: '#/components/schemas/OrganizacionConMiembros'
         createdAt:
           type: string
           format: date-time
@@ -1020,6 +1100,15 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    InvitacionCreada:
+      allOf:
+        - $ref: '#/components/schemas/Invitacion'
+        - type: object
+          properties:
+            token:
+              type: string
+              description: Código de invitación que debe compartirse con el invitado
 
     CodigoQR:
       type: object

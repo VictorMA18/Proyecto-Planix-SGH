@@ -26,11 +26,17 @@
 
 ### 4. Creación de organización
 1. Un usuario autenticado crea una organización.
-2. Se crea `Organizacion` y una fila en `MiembroOrganizacion` con `rol = ADMIN`, `estado = ACTIVO` para el usuario creador.
+2. Se crea `Organizacion` y una fila en `MiembroOrganizacion` con `rol = ADMIN`, `estado = ACTIVO` para el usuario creador, en una sola operación atómica.
+3. El `slug` se genera a partir del nombre (sin acentos, en minúsculas y con guiones); si ya existe se le añade un sufijo aleatorio.
 
 ### 5. Invitación de usuarios
 1. `ADMIN` crea una `Invitacion` (email + rol) para su organización.
-2. El invitado acepta mediante el token: se crea o activa su `MiembroOrganizacion` con el rol definido en la invitación.
+   - Solo un `ADMIN` (o `SUPER_ADMIN`) de esa organización puede invitar. No se puede invitar con rol `SUPER_ADMIN`.
+   - La respuesta incluye el `token` (10 caracteres alfanuméricos, sin caracteres ambiguos) que el admin comparte con el invitado. Vigencia: 7 días.
+2. El invitado acepta mediante el token (`POST /invitaciones/{token}/aceptar`, pantalla «Unirme con código»): se crea o activa su `MiembroOrganizacion` con el rol definido en la invitación y la invitación pasa a `ACEPTADA`.
+   - El token se normaliza (mayúsculas, sin espacios).
+   - Solo lo puede aceptar el usuario cuyo correo coincide con el de la invitación (`403` en otro caso).
+   - `404` si el código no existe, `410` si ya se usó, fue cancelado o expiró (en ese caso pasa a `EXPIRADA`), `409` si ya es miembro activo.
 
 ### 6. Creación de tarea con asignación automática
 1. `ADMIN` o `SUPERVISOR` crea una `Tarea`.
