@@ -12,6 +12,54 @@ export const ThemeColors = {
   inputBg: '#FAF8FF',
   border: '#EDE9FE',
   accentPulse: '#6B46C1',
+  error: '#DC2626',
+} as const;
+
+export const ThemeStatus = {
+  success: '#16A34A',
+  successBg: '#DCFCE7',
+  errorBg: '#FEE2E2',
+  errorText: '#B91C1C',
+} as const;
+
+// Estilos por rol de membresía (ADMIN / SUPERVISOR / EMPLEADO).
+export const RoleColors = {
+  SUPER_ADMIN: {
+    label: 'SUPER ADMIN',
+    icon: 'shield-checkmark-outline',
+    avatarBg: '#4C1D95',
+    cardBg: '#F3EEFF',
+    cardBorder: '#D9CCFB',
+    badgeBg: '#EDE9FE',
+    accent: '#4C1D95',
+  },
+  ADMIN: {
+    label: 'ADMIN',
+    icon: 'shield-checkmark-outline',
+    avatarBg: '#6B46C1',
+    cardBg: '#F3EEFF',
+    cardBorder: '#D9CCFB',
+    badgeBg: '#EDE9FE',
+    accent: '#5B30D9',
+  },
+  SUPERVISOR: {
+    label: 'SUPERVISOR',
+    icon: 'shield-half-outline',
+    avatarBg: '#2563EB',
+    cardBg: '#EAF2FF',
+    cardBorder: '#C9DDFB',
+    badgeBg: '#DBEAFE',
+    accent: '#1D4ED8',
+  },
+  EMPLEADO: {
+    label: 'EMPLEADO',
+    icon: 'person-outline',
+    avatarBg: '#16A34A',
+    cardBg: '#EAFBF0',
+    cardBorder: '#BBF0CF',
+    badgeBg: '#DCFCE7',
+    accent: '#15803D',
+  },
 } as const;
 
 export const Colors = {
