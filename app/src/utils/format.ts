@@ -44,3 +44,22 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   });
 }
+
+/** Antigüedad desde la fecha de ingreso: `3 años, 4 meses`, `5 meses` o `Menos de un mes`. */
+export function formatTenure(iso: string | null, now = new Date()): string {
+  if (!iso) return '';
+  const start = new Date(iso);
+  const months = Math.max(
+    0,
+    (now.getFullYear() - start.getFullYear()) * 12 +
+      (now.getMonth() - start.getMonth()) -
+      (now.getDate() < start.getDate() ? 1 : 0),
+  );
+  const years = Math.floor(months / 12);
+  const rest = months % 12;
+
+  if (months < 1) return 'Menos de un mes';
+  const yearsText = years > 0 ? `${years} ${years === 1 ? 'año' : 'años'}` : '';
+  const monthsText = rest > 0 ? `${rest} ${rest === 1 ? 'mes' : 'meses'}` : '';
+  return [yearsText, monthsText].filter(Boolean).join(', ');
+}

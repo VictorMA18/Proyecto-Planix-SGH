@@ -75,6 +75,49 @@ export const invitationCodeSchema = z.object({
 });
 export type InvitationCode = z.infer<typeof invitationCodeSchema>;
 
+/** Respuesta de `POST /organizaciones/{id}/invitaciones`: la invitación creada con su `token`. */
+export const personalInvitationCreatedSchema = z.object({
+  token: z.string(),
+  rol: teamRoleSchema,
+  expiraEn: z.iso.datetime(),
+});
+
+// ---- Perfil de un miembro ----
+
+/** Respuesta de `GET /organizaciones/{id}/miembros/{miembroId}` (también del `PATCH` de rol). */
+export const memberProfileSchema = z.object({
+  id: z.string(),
+  usuario: z.object({
+    id: z.string(),
+    nombre: z.string(),
+    email: z.email(),
+    emailVerificado: z.boolean(),
+    avatarUrl: z.string().nullable(),
+  }),
+  rol: teamRoleSchema,
+  estado: z.enum(['ACTIVO', 'INVITADO', 'INACTIVO']),
+  fechaIngreso: z.iso.datetime().nullable(),
+});
+export type MemberProfile = z.infer<typeof memberProfileSchema>;
+
+/**
+ * Credencial digital y métricas del perfil. Todavía no existe backend (dependen de asistencia y
+ * tareas, Fases 2 y 3): son datos de ejemplo y la pantalla los marca como tales.
+ */
+export const memberSampleSchema = z.object({
+  periodo: z.string(),
+  turno: z.string(),
+  jornada: z.object({ inicio: z.string(), fin: z.string() }),
+  registroEntrada: z.string(),
+  puntualidad: z.number().min(0).max(100),
+  turnos: z.object({ completados: z.number().int(), total: z.number().int() }),
+  tareas: z.object({ completadas: z.number().int(), total: z.number().int() }),
+});
+export type MemberSample = z.infer<typeof memberSampleSchema>;
+
+export const changeRoleSchema = z.object({ rol: inviteRoleSchema });
+export type ChangeRoleInput = z.infer<typeof changeRoleSchema>;
+
 // ---- Formularios de invitación ----
 
 export const personalInviteSchema = z.object({
@@ -88,7 +131,7 @@ export const personalInviteSchema = z.object({
 export type PersonalInviteInput = z.input<typeof personalInviteSchema>;
 
 /** Vigencia del código genérico, en minutos. */
-export const VIGENCIA_OPTIONS = [5, 10, 30] as const;
+export const VIGENCIA_OPTIONS = [5, 10, 15] as const;
 export const DEFAULT_VIGENCIA_MINUTOS = 10;
 
 export const genericCodeSchema = z.object({
