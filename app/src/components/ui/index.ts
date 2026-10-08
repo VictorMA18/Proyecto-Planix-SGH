@@ -11,3 +11,4 @@ export * from './FormScreenLayout';
 export * from './ChoiceChips';
 export * from './ComingSoon';
 export * from './SegmentedControl';
+export * from './ConfirmModal';

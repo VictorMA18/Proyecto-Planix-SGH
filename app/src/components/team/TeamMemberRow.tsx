@@ -30,11 +30,11 @@ const StatusPill: React.FC<StatusPillProps> = ({ text, color, background, icon }
 
 interface TeamMemberRowProps {
   member: TeamMember;
-  /** Muestra el menú de acciones (solo administradores). */
-  canManage: boolean;
+  /** Abre el menú de acciones del miembro (ver perfil, cambiar rol, quitar del equipo). */
+  onMenuPress: () => void;
 }
 
-export const TeamMemberRow: React.FC<TeamMemberRowProps> = ({ member, canManage }) => {
+export const TeamMemberRow: React.FC<TeamMemberRowProps> = ({ member, onMenuPress }) => {
   const onShift = !!member.enTurnoDesde;
 
   const status = onShift ? (
@@ -76,18 +76,15 @@ export const TeamMemberRow: React.FC<TeamMemberRowProps> = ({ member, canManage 
           </Text>
         </View>
 
-        {canManage ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Acciones de ${member.nombre}`}
-            accessibilityHint="Próximamente"
-            accessibilityState={{ disabled: true }}
-            disabled
-            className="w-11 h-11 -mr-2 -mt-2 items-center justify-center opacity-60"
-          >
-            <Ionicons name="ellipsis-vertical" size={18} color={ThemeColors.mutedText} />
-          </Pressable>
-        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Acciones de ${member.nombre}`}
+          onPress={onMenuPress}
+          hitSlop={4}
+          className="w-11 h-11 -mr-2 -mt-2 items-center justify-center rounded-full active:bg-tertiary"
+        >
+          <Ionicons name="ellipsis-vertical" size={18} color={ThemeColors.mutedText} />
+        </Pressable>
       </View>
 
       <View className="flex-row flex-wrap items-center justify-between gap-2 border-t border-borderBg mt-3 pt-3">

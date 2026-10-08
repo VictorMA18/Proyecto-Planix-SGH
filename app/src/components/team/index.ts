@@ -6,3 +6,5 @@ export * from './TeamFilterChips';
 export * from './TeamMemberRow';
 export * from './TeamPagination';
 export * from './TeamSearchBar';
+export * from './actions';
+export * from './profile';

@@ -13,7 +13,7 @@ import { ThemeColors } from '../../constants/theme';
 interface AppButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'danger';
   isLoading?: boolean;
   disabled?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
@@ -31,7 +31,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
   rightArrow = false,
   style,
 }) => {
-  const isPrimary = variant === 'primary';
+  // 'primary' y 'danger' son botones sólidos con texto blanco; 'secondary' es el botón claro.
+  const isPrimary = variant !== 'secondary';
 
   return (
     <Pressable
@@ -45,9 +46,11 @@ export const AppButton: React.FC<AppButtonProps> = ({
         style,
       ]}
       className={`w-full py-3.5 px-6 rounded-2xl items-center justify-center ${
-        isPrimary
-          ? 'bg-primary shadow-lg shadow-primary/30'
-          : 'bg-tertiary'
+        variant === 'danger'
+          ? 'bg-red-600 shadow-lg shadow-red-600/30'
+          : isPrimary
+            ? 'bg-primary shadow-lg shadow-primary/30'
+            : 'bg-tertiary'
       } ${disabled || isLoading ? 'opacity-60' : ''}`}
     >
       {({ pressed }) => (

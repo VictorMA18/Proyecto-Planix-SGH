@@ -14,6 +14,8 @@ interface UserAvatarProps {
   statusColor?: string;
   /** Si se define, muestra el botón de cámara sobre el avatar. */
   onCameraPress?: () => void;
+  /** Insignia de cuenta verificada (escudo con check) en la esquina inferior. */
+  verified?: boolean;
   /** Muestra un indicador de carga sobre la imagen (p. ej. mientras se sube). */
   isBusy?: boolean;
 }
@@ -25,6 +27,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   showStatusDot = false,
   statusColor = ThemeStatus.success,
   onCameraPress,
+  verified = false,
   isBusy = false,
 }) => {
   return (
@@ -57,6 +60,12 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
           style={{ backgroundColor: statusColor }}
           className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white"
         />
+      ) : null}
+
+      {verified ? (
+        <View className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary border-2 border-white items-center justify-center">
+          <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
+        </View>
       ) : null}
 
       {onCameraPress ? (
