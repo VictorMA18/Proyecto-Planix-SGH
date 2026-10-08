@@ -11,6 +11,7 @@ export default function AppLayout() {
     >
       <Stack.Screen name="index" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="miembro/[miembroId]" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="edit-profile" />
       <Stack.Screen name="change-password" />

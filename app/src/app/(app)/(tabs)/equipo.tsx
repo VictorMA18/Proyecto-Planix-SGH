@@ -1,18 +1,24 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MembershipsState } from '@/components/organizations';
 import {
+  ChangeRoleModal,
   InviteCodeModal,
   InviteMemberModal,
+  MemberActionsMenu,
   PendingInvitationRow,
+  RemoveMemberModal,
   TeamFilterChips,
   TeamMemberRow,
   TeamPagination,
   TeamSearchBar,
   type GeneratedInvite,
 } from '@/components/team';
+import type { TeamMember } from '@/schemas/team.schema';
+import { canModifyMember } from '@/utils/team-permissions';
 import { AppButton } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
@@ -21,8 +27,9 @@ import { useResendInvitation, useTeam } from '@/services/team';
 import { useTeamStore } from '@/stores/useTeamStore';
 
 export default function TeamScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { organization, canManageTeam } = useActiveOrganization();
+  const { organization, membership, role, canManageTeam } = useActiveOrganization();
   const { search, filter, page, setSearch, setFilter, setPage, reset } = useTeamStore();
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -32,12 +39,22 @@ export default function TeamScreen() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [generated, setGenerated] = useState<GeneratedInvite | null>(null);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [menuMember, setMenuMember] = useState<TeamMember | null>(null);
+  const [roleMember, setRoleMember] = useState<TeamMember | null>(null);
+  const [removeMember, setRemoveMember] = useState<TeamMember | null>(null);
 
   // Al cambiar de organización, filtros y página empiezan de cero.
   useEffect(() => reset(), [organization?.id, reset]);
 
   const data = team.data;
   const activeMembers = data ? data.conteos.todos - data.conteos.pendientes : 0;
+
+  // Al pasar del menú a otro modal se espera a que el primero termine de cerrarse
+  // (dos modales a la vez fallan en iOS).
+  const afterMenuClosed = (action: () => void) => {
+    setMenuMember(null);
+    setTimeout(action, 300);
+  };
 
   const handleResend = (id: string) => {
     setResendingId(id);
@@ -115,7 +132,7 @@ export default function TeamScreen() {
           <View className={`gap-4 ${team.isPlaceholderData ? 'opacity-60' : ''}`}>
             {team.data.items.map((item) =>
               item.tipo === 'MIEMBRO' ? (
-                <TeamMemberRow key={item.id} member={item} canManage={canManageTeam} />
+                <TeamMemberRow key={item.id} member={item} onMenuPress={() => setMenuMember(item)} />
               ) : (
                 <PendingInvitationRow
                   key={item.id}
@@ -146,6 +163,24 @@ export default function TeamScreen() {
         invite={generated}
         organizationName={organization?.nombre ?? 'la organización'}
         onClose={() => setGenerated(null)}
+      />
+
+      <MemberActionsMenu
+        member={menuMember}
+        canModify={
+          !!menuMember &&
+          canModifyMember({ viewerRole: role, viewerMembershipId: membership?.id, member: menuMember })
+        }
+        onClose={() => setMenuMember(null)}
+        onViewProfile={(member) => afterMenuClosed(() => router.push(`/miembro/${member.id}`))}
+        onChangeRole={(member) => afterMenuClosed(() => setRoleMember(member))}
+        onRemove={(member) => afterMenuClosed(() => setRemoveMember(member))}
+      />
+      <ChangeRoleModal member={roleMember} onClose={() => setRoleMember(null)} />
+      <RemoveMemberModal
+        member={removeMember}
+        organizationName={organization?.nombre ?? 'la organización'}
+        onClose={() => setRemoveMember(null)}
       />
     </View>
   );
