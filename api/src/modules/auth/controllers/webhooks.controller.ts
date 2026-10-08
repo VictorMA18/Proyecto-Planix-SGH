@@ -8,7 +8,14 @@ import {
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
-import { UsuariosService } from './usuarios.service';
+import type { DatosUsuarioClerk } from '../../usuarios/interfaces/datos-usuario-clerk.interface';
+import { UsuariosService } from '../../usuarios/services/usuarios.service';
+
+/** Evento de usuario enviado por Clerk (`user.created`, `user.updated`, `user.deleted`). */
+interface ClerkWebhookEvent {
+  type: string;
+  data: DatosUsuarioClerk;
+}
 
 @Controller('webhooks')
 export class WebhooksController {
@@ -28,7 +35,7 @@ export class WebhooksController {
         await this.usuarios.sincronizar(evt.data);
         break;
       case 'user.deleted':
-        if (evt.data?.id) await this.usuarios.desactivar(evt.data.id);
+        if (evt.data.id) await this.usuarios.desactivar(evt.data.id);
         break;
       default:
         this.logger.debug(`Evento ignorado: ${evt.type}`);
@@ -38,16 +45,22 @@ export class WebhooksController {
   }
 
   /** Valida la firma Svix sobre el cuerpo crudo; sin secreto real solo se acepta en desarrollo. */
-  private async verificar(req: RawBodyRequest<Request>): Promise<{ type: string; data: any }> {
+  private async verificar(
+    req: RawBodyRequest<Request>,
+  ): Promise<ClerkWebhookEvent> {
     const secret = process.env.CLERK_WEBHOOK_SECRET;
     const esPlaceholder = !secret || secret === 'whsec_placeholder';
 
     if (esPlaceholder) {
       if (process.env.NODE_ENV === 'production') {
-        throw new BadRequestException('Webhook de Clerk sin secreto configurado');
+        throw new BadRequestException(
+          'Webhook de Clerk sin secreto configurado',
+        );
       }
-      this.logger.warn('CLERK_WEBHOOK_SECRET no configurada: se omite la verificación de firma.');
-      return req.body;
+      this.logger.warn(
+        'CLERK_WEBHOOK_SECRET no configurada: se omite la verificación de firma.',
+      );
+      return req.body as ClerkWebhookEvent;
     }
 
     const headers = req.headers as Record<string, string>;
@@ -68,9 +81,11 @@ export class WebhooksController {
         'svix-timestamp': svixTimestamp,
         'svix-signature': svixSignature,
       });
-      return JSON.parse(cuerpo) as { type: string; data: any };
-    } catch (err: any) {
-      this.logger.error(`Firma de webhook no válida: ${err.message}`);
+      return JSON.parse(cuerpo) as ClerkWebhookEvent;
+    } catch (err: unknown) {
+      this.logger.error(
+        `Firma de webhook no válida: ${err instanceof Error ? err.message : String(err)}`,
+      );
       throw new BadRequestException('Firma de webhook inválida');
     }
   }

@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { verifyToken } from '@clerk/backend';
+import type { AuthenticatedUser } from '../interfaces/authenticated-user.interface';
 
 /** Claims del token de sesión de Clerk que usa el backend. */
 interface ClerkSessionClaims {
@@ -13,21 +14,21 @@ interface ClerkSessionClaims {
   sid?: string;
 }
 
-export interface AuthenticatedUser {
-  clerkId: string;
-  sessionId?: string;
-}
-
 @Injectable()
 export class ClerkAuthGuard implements CanActivate {
   private readonly logger = new Logger(ClerkAuthGuard.name);
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const authHeader: string | undefined = request.headers.authorization;
+    const request = context.switchToHttp().getRequest<{
+      headers: { authorization?: string };
+      user?: AuthenticatedUser;
+    }>();
+    const authHeader = request.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Header Authorization Bearer no proporcionado o inválido');
+      throw new UnauthorizedException(
+        'Header Authorization Bearer no proporcionado o inválido',
+      );
     }
 
     const token = authHeader.slice('Bearer '.length).trim();
@@ -35,14 +36,17 @@ export class ClerkAuthGuard implements CanActivate {
     let claims: ClerkSessionClaims;
     try {
       // En @clerk/backend 3.x `verifyToken` devuelve el payload del JWT y lanza una excepción si
-      // el token no es válido (su tipo declarado no coincide con el comportamiento real).
-      claims = (await verifyToken(token, {
+      // el token no es válido (no devuelve un objeto `{ data, errors }`).
+      claims = await verifyToken(token, {
         secretKey: process.env.CLERK_SECRET_KEY,
         jwtKey: process.env.CLERK_JWT_KEY,
-      })) as unknown as ClerkSessionClaims;
-    } catch (err: any) {
-      const expirado = err?.reason === 'token-expired';
-      this.logger.warn(`Token rechazado: ${err?.reason ?? err?.message}`);
+      });
+    } catch (err: unknown) {
+      const reason = (err as { reason?: string } | null)?.reason;
+      const expirado = reason === 'token-expired';
+      this.logger.warn(
+        `Token rechazado: ${reason ?? (err instanceof Error ? err.message : String(err))}`,
+      );
       throw new UnauthorizedException(
         expirado
           ? 'La sesión expiró. Vuelve a intentarlo.'
@@ -54,7 +58,10 @@ export class ClerkAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token de sesión Clerk inválido');
     }
 
-    request.user = { clerkId: claims.sub, sessionId: claims.sid } satisfies AuthenticatedUser;
+    request.user = {
+      clerkId: claims.sub,
+      sessionId: claims.sid,
+    } satisfies AuthenticatedUser;
     return true;
   }
 }

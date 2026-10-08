@@ -10,8 +10,9 @@ if (existsSync('.env')) process.loadEnvFile('.env');
 
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
-import { ClerkService } from '../src/modules/auth/clerk.service';
-import { datosDesdeUsuarioClerk, UsuariosService } from '../src/modules/auth/usuarios.service';
+import { ClerkService } from '../src/clerk/clerk.service';
+import { UsuariosService } from '../src/modules/usuarios/services/usuarios.service';
+import { datosDesdeUsuarioClerk } from '../src/modules/usuarios/utils/clerk-usuario.util';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 const TAMANO_PAGINA = 100;
