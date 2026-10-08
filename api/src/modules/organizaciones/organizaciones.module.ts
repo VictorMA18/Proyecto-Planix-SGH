@@ -1,12 +1,18 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from '../auth/auth.module';
-import { OrganizacionesController } from './organizaciones.controller';
-import { OrganizacionesService } from './organizaciones.service';
+import { UsuariosModule } from '../usuarios/usuarios.module';
+import { OrganizacionesController } from './controllers/organizaciones.controller';
+import { AccesoOrganizacionService } from './services/acceso-organizacion.service';
+import { MiembrosService } from './services/miembros.service';
+import { OrganizacionesService } from './services/organizaciones.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [UsuariosModule],
   controllers: [OrganizacionesController],
-  providers: [OrganizacionesService],
-  exports: [OrganizacionesService],
+  providers: [
+    OrganizacionesService,
+    AccesoOrganizacionService,
+    MiembrosService,
+  ],
+  exports: [AccesoOrganizacionService, MiembrosService],
 })
 export class OrganizacionesModule {}

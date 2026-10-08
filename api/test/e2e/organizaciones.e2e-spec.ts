@@ -1,9 +1,14 @@
-import { ExecutionContext, INestApplication, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  INestApplication,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { AppModule } from '../src/app.module';
-import { ClerkAuthGuard } from '../src/modules/auth/auth.guard';
-import { PrismaService } from '../src/prisma/prisma.service';
+import { AppModule } from '../../src/app.module';
+import { configureApp } from '../../src/app.setup';
+import { ClerkAuthGuard } from '../../src/common/guards/clerk-auth.guard';
+import { PrismaService } from '../../src/prisma/prisma.service';
 
 // Contra la base de desarrollo: todo lo creado usa el prefijo `e2e_` y se elimina al terminar.
 const SUFIJO = Date.now().toString(36);
@@ -33,6 +38,7 @@ describe('Organizaciones e invitaciones (e2e)', () => {
       .compile();
 
     app = moduleRef.createNestApplication();
+    configureApp(app);
     await app.init();
     prisma = app.get(PrismaService);
     http = request(app.getHttpServer());
@@ -55,7 +61,9 @@ describe('Organizaciones e invitaciones (e2e)', () => {
     });
     const ids = usuarios.map((u) => u.id);
     // Las organizaciones se llevan en cascada sus miembros e invitaciones.
-    await prisma.organizacion.deleteMany({ where: { miembros: { some: { usuarioId: { in: ids } } } } });
+    await prisma.organizacion.deleteMany({
+      where: { miembros: { some: { usuarioId: { in: ids } } } },
+    });
     await prisma.usuario.deleteMany({ where: { id: { in: ids } } });
     await app.close();
   });
@@ -66,12 +74,19 @@ describe('Organizaciones e invitaciones (e2e)', () => {
 
   it('GET /auth/me devuelve el usuario local', async () => {
     const res = await http.get('/auth/me').set(como(ADMIN_CLERK)).expect(200);
-    expect(res.body).toMatchObject({ clerkId: ADMIN_CLERK, email: `${ADMIN_CLERK}@example.test` });
+    expect(res.body).toMatchObject({
+      clerkId: ADMIN_CLERK,
+      email: `${ADMIN_CLERK}@example.test`,
+    });
   });
 
   describe('crear organización', () => {
     it('valida el nombre y la zona horaria (400)', async () => {
-      await http.post('/organizaciones').set(como(ADMIN_CLERK)).send({ nombre: ' ' }).expect(400);
+      await http
+        .post('/organizaciones')
+        .set(como(ADMIN_CLERK))
+        .send({ nombre: ' ' })
+        .expect(400);
       await http
         .post('/organizaciones')
         .set(como(ADMIN_CLERK))
@@ -81,7 +96,11 @@ describe('Organizaciones e invitaciones (e2e)', () => {
 
     it('crea la organización, deja al creador como ADMIN y evita slugs duplicados', async () => {
       const nombre = `E2E Café Ñandú ${SUFIJO}`;
-      const a = await http.post('/organizaciones').set(como(ADMIN_CLERK)).send({ nombre }).expect(201);
+      const a = await http
+        .post('/organizaciones')
+        .set(como(ADMIN_CLERK))
+        .send({ nombre })
+        .expect(201);
       expect(a.body.slug).toBe(`e2e-cafe-nandu-${SUFIJO}`);
       expect(a.body.zonaHoraria).toBe('America/Lima');
 
@@ -93,7 +112,10 @@ describe('Organizaciones e invitaciones (e2e)', () => {
       expect(b.body.slug).not.toBe(a.body.slug);
       expect(b.body.slug.startsWith(a.body.slug)).toBe(true);
 
-      const membresias = await http.get('/me/membresias').set(como(ADMIN_CLERK)).expect(200);
+      const membresias = await http
+        .get('/me/membresias')
+        .set(como(ADMIN_CLERK))
+        .expect(200);
       expect(membresias.body).toHaveLength(2);
       expect(membresias.body[0]).toMatchObject({
         rol: 'ADMIN',
@@ -104,7 +126,10 @@ describe('Organizaciones e invitaciones (e2e)', () => {
     });
 
     it('un usuario sin membresías recibe una lista vacía', async () => {
-      const res = await http.get('/me/membresias').set(como(AJENO_CLERK)).expect(200);
+      const res = await http
+        .get('/me/membresias')
+        .set(como(AJENO_CLERK))
+        .expect(200);
       expect(res.body).toEqual([]);
     });
   });
@@ -122,12 +147,28 @@ describe('Organizaciones e invitaciones (e2e)', () => {
     });
 
     const invitar = (clerkId: string, body: object) =>
-      http.post(`/organizaciones/${organizacionId}/invitaciones`).set(como(clerkId)).send(body);
+      http
+        .post(`/organizaciones/${organizacionId}/invitaciones`)
+        .set(como(clerkId))
+        .send(body);
 
     it('valida los datos y los permisos al invitar', async () => {
-      await invitar(ADMIN_CLERK, { email: 'no-es-correo', rol: 'EMPLEADO' }).expect(400);
-      await invitar(ADMIN_CLERK, { email: 'a@b.co', rol: 'SUPER_ADMIN' }).expect(400);
-      await invitar(AJENO_CLERK, { email: 'a@b.co', rol: 'EMPLEADO' }).expect(404);
+      await invitar(ADMIN_CLERK, {
+        email: 'no-es-correo',
+        rol: 'EMPLEADO',
+      }).expect(400);
+      await invitar(ADMIN_CLERK, {
+        email: 'a@b.co',
+        rol: 'SUPER_ADMIN',
+      }).expect(400);
+      await invitar(AJENO_CLERK, { email: 'a@b.co', rol: 'EMPLEADO' }).expect(
+        404,
+      );
+      await invitar(ADMIN_CLERK, {
+        email: 'a@b.co',
+        rol: 'EMPLEADO',
+        extra: 'no permitido',
+      }).expect(400);
       await http
         .post('/organizaciones/no-es-uuid/invitaciones')
         .set(como(ADMIN_CLERK))
@@ -144,38 +185,64 @@ describe('Organizaciones e invitaciones (e2e)', () => {
       expect(token).toMatch(/^[A-HJ-NP-Z2-9]{10}$/);
       expect(creada.body).not.toHaveProperty('invitadoPor');
 
-      await http.post(`/invitaciones/${token}/aceptar`).set(como(AJENO_CLERK)).expect(403);
-      await http.post('/invitaciones/CODIGOFALSO/aceptar').set(como(INVITADO_CLERK)).expect(404);
+      await http
+        .post(`/invitaciones/${token}/aceptar`)
+        .set(como(AJENO_CLERK))
+        .expect(403);
+      await http
+        .post('/invitaciones/CODIGOFALSO/aceptar')
+        .set(como(INVITADO_CLERK))
+        .expect(404);
 
       // Acepta con el código en minúsculas y con espacios: se normaliza.
       const aceptada = await http
         .post(`/invitaciones/%20${token.toLowerCase()}%20/aceptar`)
         .set(como(INVITADO_CLERK))
         .expect(200);
-      expect(aceptada.body).toMatchObject({ rol: 'SUPERVISOR', estado: 'ACTIVO' });
+      expect(aceptada.body).toMatchObject({
+        rol: 'SUPERVISOR',
+        estado: 'ACTIVO',
+      });
       expect(aceptada.body.usuario.clerkId).toBe(INVITADO_CLERK);
 
-      await http.post(`/invitaciones/${token}/aceptar`).set(como(INVITADO_CLERK)).expect(410);
+      await http
+        .post(`/invitaciones/${token}/aceptar`)
+        .set(como(INVITADO_CLERK))
+        .expect(410);
 
-      const membresias = await http.get('/me/membresias').set(como(INVITADO_CLERK)).expect(200);
+      const membresias = await http
+        .get('/me/membresias')
+        .set(como(INVITADO_CLERK))
+        .expect(200);
       expect(membresias.body).toHaveLength(1);
       expect(membresias.body[0]).toMatchObject({
         rol: 'SUPERVISOR',
         organizacion: { id: organizacionId, miembrosActivos: 2 },
       });
 
-      await invitar(ADMIN_CLERK, { email: `${INVITADO_CLERK}@example.test`, rol: 'EMPLEADO' }).expect(409);
+      await invitar(ADMIN_CLERK, {
+        email: `${INVITADO_CLERK}@example.test`,
+        rol: 'EMPLEADO',
+      }).expect(409);
     });
 
     it('una invitación vencida responde 410 y queda EXPIRADA', async () => {
-      const creada = await invitar(ADMIN_CLERK, { email: `${AJENO_CLERK}@example.test`, rol: 'EMPLEADO' }).expect(201);
+      const creada = await invitar(ADMIN_CLERK, {
+        email: `${AJENO_CLERK}@example.test`,
+        rol: 'EMPLEADO',
+      }).expect(201);
       await prisma.invitacion.update({
         where: { id: creada.body.id },
         data: { expiraEn: new Date(Date.now() - 1000) },
       });
 
-      await http.post(`/invitaciones/${creada.body.token}/aceptar`).set(como(AJENO_CLERK)).expect(410);
-      const guardada = await prisma.invitacion.findUnique({ where: { id: creada.body.id } });
+      await http
+        .post(`/invitaciones/${creada.body.token}/aceptar`)
+        .set(como(AJENO_CLERK))
+        .expect(410);
+      const guardada = await prisma.invitacion.findUnique({
+        where: { id: creada.body.id },
+      });
       expect(guardada?.estado).toBe('EXPIRADA');
     });
   });
