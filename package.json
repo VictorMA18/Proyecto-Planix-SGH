@@ -7,6 +7,10 @@
     "start:app": "pnpm --prefix app start",
     "build:api": "pnpm --prefix api build",
     "build:app": "pnpm --prefix app build",
-    "typecheck:app": "pnpm --prefix app exec tsc --noEmit"
+    "typecheck:app": "pnpm --prefix app exec tsc --noEmit",
+    "check:api": "pnpm --prefix api lint:check && pnpm --prefix api format:check && pnpm --prefix api build && pnpm --prefix api test",
+    "check:app": "pnpm --prefix app exec tsc --noEmit",
+    "check": "pnpm check:api && pnpm check:app",
+    "test:e2e:api": "pnpm --prefix api test:e2e --runInBand"
   }
 }

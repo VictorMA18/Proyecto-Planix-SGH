@@ -59,7 +59,7 @@ El proyecto se trabaja con Antigravity y OpenCode, y se soporta Claude Code. Dó
 ## 7. Qué NO asumir
 
 - No existe aún ninguna decisión de testing framework más allá del que trae NestJS por defecto (Jest). Si vas a escribir tests, usa Jest salvo que el usuario indique otra cosa.
-- No existe todavía pipeline de CI/CD definido. No lo inventes; pregunta o déjalo como pendiente explícito si el trabajo lo requiere.
+- El CI (GitHub Actions) y el modelo de ramas ya están definidos (ver sección 12 y `documentacion/13-gitflow-y-ci.md`). El **CD** (despliegue) todavía no: no lo inventes; pregunta o déjalo como pendiente explícito si el trabajo lo requiere.
 - No asumas nombres de variables de entorno fuera de los listados en `documentacion/10-variables-de-entorno.md`; si falta una, agrégala ahí primero.
 
 ## 8. Orden de trabajo sugerido
@@ -94,3 +94,23 @@ Toda pantalla de la app (`app/`) debe usar estas tres tecnologías, cada una par
 - **TanStack Query — estado remoto.** Un hook por recurso en `src/services/<dominio>.ts`. Las claves incluyen `userId` y `organizacionId` para que no se mezclen datos entre cuentas u organizaciones; las mutaciones invalidan las consultas afectadas.
 - **Mocks.** Mientras no exista el endpoint, los datos de ejemplo viven en `src/mocks/` y **solo** los consume `src/services/`, con la misma firma y la misma forma (validada con Zod) que tendrá la respuesta real, y un comentario `Backend: <MÉTODO> <ruta>` en cada función. Las pantallas y los componentes nunca importan `src/mocks/`; así el cambio a la API real se hace solo en el servicio.
 - **Contract-first.** Todo endpoint proyectado se define primero en `api/openapi.yaml` y se marca como «proyectado» en `documentacion/04-api.md` hasta que se implemente.
+
+## 11. Backend NestJS: DTOs y estructura de carpetas
+
+- **DTOs obligatorios.** Toda entrada del backend (body, query y parámetros de ruta) se recibe como una **clase DTO** con `class-validator` y `class-transformer`; no se valida a mano dentro de controladores ni servicios. El `ValidationPipe` global se configura una sola vez en `src/app.setup.ts` (`configureApp`), que usan `main.ts` y los tests e2e: `whitelist`, `forbidNonWhitelisted` y `transform`. Mensajes de error en español.
+- **Respuestas también como DTO.** Los controladores devuelven clases `*ResponseDto` con un mapeador estático `desde(...)`; nunca se devuelven entidades de Prisma directamente (así no se filtran campos internos y la forma coincide con `api/openapi.yaml`).
+- **Un módulo, varios directorios.** Cada módulo de `src/modules/<módulo>/` reparte sus archivos en subcarpetas y no deja todo en una sola: `controllers/` (solo HTTP), `services/` (reglas de negocio), `dto/` (entrada y respuesta), y `utils/`, `validators/` o `interfaces/` solo si hacen falta, más `<módulo>.module.ts` en la raíz del módulo. Lo transversal va en `src/common/` (`guards/`, `decorators/`, `interfaces/`, `constants/`, `utils/`); el cliente de Clerk en `src/clerk/` y Prisma en `src/prisma/`.
+- **Nombres:** archivos en kebab-case con el sufijo de su rol (`crear-invitacion.dto.ts`, `equipo.service.ts`, `equipo.controller.ts`); un DTO por archivo, salvo respuestas muy acopladas.
+- **Pruebas:** DTOs con tests unitarios (`*.dto.spec.ts` junto al DTO) y endpoints con e2e en `api/test/e2e/`, con el guard de Clerk reemplazado y limpiando todo lo que creen en la base de desarrollo.
+
+## 12. Git, GitFlow y CI
+
+Guía completa en `documentacion/13-gitflow-y-ci.md`.
+
+- **GitFlow.** Ramas: `main` (producción), `develop` (integración), `feature/*`, `bugfix/*`, `release/*` y `hotfix/*`. **Nunca** hagas push directo a `main` ni a `develop`: todo entra por Pull Request. A `main` solo se llega desde `release/*` o `hotfix/*`.
+- **Conventional Commits en español**: `tipo(ámbito): descripción` (tipos: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `perf`, `build`, `style`, `revert`; ámbitos habituales: `api`, `mobile`, `database`, `root`). El título del PR sigue el mismo formato. Agrupa los commits por capa y evita commits de un solo archivo.
+- **Antes de abrir un PR** ejecuta `pnpm check` (lint, formato, build y tests unitarios del backend, y tipos de la app) y, si tocaste el backend, `pnpm test:e2e:api`.
+- **El CI debe pasar** (check `CI OK` de `.github/workflows/ci.yml`). No lo desactives, no lo debilites ni lo saltes para que pase: arregla la causa. Si cambias un comando de build, lint o test, actualiza el workflow y `documentacion/13-gitflow-y-ci.md` en el mismo cambio.
+- **Coherencia que el CI protege:** `api/openapi.yaml` debe ser válido, `database/schema.sql` debe crear la base que usan los e2e, y el backend debe pasar ESLint y Prettier.
+- **Credenciales:** nunca en el repositorio ni en workflows (el CI las busca). Los valores del CI son ficticios.
+

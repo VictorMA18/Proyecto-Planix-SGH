@@ -1,0 +1,169 @@
+name: CI
+
+# Verifica cada PR y cada push a las ramas de GitFlow. El CD (despliegue) todavía no está
+# definido: ver documentacion/13-gitflow-y-ci.md.
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop, 'release/**', 'hotfix/**']
+  workflow_dispatch:
+
+# Un push nuevo a la misma rama cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '11.1.1'
+
+jobs:
+  # ---------------------------------------------------------------- Convenciones de Git
+  gitflow:
+    name: Ramas (GitFlow)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar el origen y el destino del PR
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: bash .github/scripts/check-branches.sh
+
+  commits:
+    name: Commits (Conventional Commits)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validar el título del PR y los commits
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/check-commits.sh
+
+  # ---------------------------------------------------------------- Seguridad y contrato
+  secretos:
+    name: Sin credenciales versionadas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash .github/scripts/check-secrets.sh
+
+  contrato:
+    name: Contrato OpenAPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml
+      - run: python .github/scripts/validate_openapi.py
+
+  # ---------------------------------------------------------------- Backend
+  api:
+    name: Backend (NestJS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sgh
+          POSTGRES_PASSWORD: sgh
+          POSTGRES_DB: sgh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sgh -d sgh"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://sgh:sgh@localhost:5432/sgh?schema=public
+      # Valores ficticios: los tests e2e reemplazan el guard de Clerk y no llaman a su API.
+      CLERK_SECRET_KEY: sk_test_ci_placeholder
+      CLERK_WEBHOOK_SECRET: whsec_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: api/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Prisma (generar cliente y validar el esquema)
+        run: |
+          pnpm exec prisma generate
+          pnpm exec prisma validate
+      - name: Lint
+        run: pnpm lint:check
+      - name: Formato (Prettier)
+        run: pnpm format:check
+      - name: Build
+        run: pnpm build
+      - name: Tests unitarios
+        run: pnpm test
+      - name: Crear el esquema de la base de datos (database/schema.sql)
+        run: psql "postgresql://sgh:sgh@localhost:5432/sgh" -v ON_ERROR_STOP=1 -f ../database/schema.sql
+      - name: Tests e2e
+        run: pnpm test:e2e --runInBand
+
+  # ---------------------------------------------------------------- App (Expo)
+  app:
+    name: App (Expo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      CI: '1'
+      EXPO_NO_TELEMETRY: '1'
+      # Valores ficticios con formato válido, solo para compilar la exportación web.
+      EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
+      EXPO_PUBLIC_API_URL: http://localhost:3000/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - name: Tipos (TypeScript)
+        run: pnpm exec tsc --noEmit
+      - name: Compilar la app web (expo export)
+        run: pnpm exec expo export -p web --output-dir "$RUNNER_TEMP/web-build"
+
+  # ---------------------------------------------------------------- Resultado único
+  # Este es el único check que hay que marcar como obligatorio en la protección de ramas.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [gitflow, commits, secretos, contrato, api, app]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Todos los jobs deben haber pasado (o haberse omitido)
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
+            echo "::error::Algún job de CI falló."
+            exit 1
+          fi

@@ -86,3 +86,8 @@ El formato `SKILL.md` es común. `npx skills add <repo> --skill <nombre>` instal
 2. No introducir archivos de configuración propios de un agente con reglas distintas a `AGENTS.md`.
 3. No escribir ni mostrar credenciales; usar siempre variables de entorno.
 4. Si un agente no encuentra el MCP de Stitch, comprobar primero que `STITCH_API_KEY` está definida en el entorno desde el que se lanzó.
+
+## Git y CI
+
+Los agentes siguen el mismo flujo que las personas: GitFlow, Conventional Commits en español y PR con el CI en verde. Las reglas están en `AGENTS.md` (sección 12) y el detalle en `documentacion/13-gitflow-y-ci.md`. Antes de abrir un PR, `pnpm check` reproduce en local los chequeos del CI.
+

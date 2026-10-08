@@ -89,7 +89,8 @@ sgh-proyecto/
 ├── CLAUDE.md                    # Claude Code: importa AGENTS.md
 ├── opencode.json                # OpenCode: MCP de Stitch
 ├── .mcp.json                    # Claude Code: MCP de Stitch
-├── package.json                 # Monorepo pnpm workspace
+├── package.json                 # Scripts del monorepo (incluye `pnpm check`)
+├── .github/                     # CI (GitHub Actions), scripts de verificación y plantilla de PR
 ├── docker-compose.yml           # (En api/docker-compose.yml)
 ├── documentacion/               # Documentación técnica, dividida por tema
 ├── skills/                      # Skills de agente recomendadas
@@ -118,4 +119,5 @@ sgh-proyecto/
 | Entender un flujo de negocio paso a paso (QR, tareas, notificaciones) | `documentacion/06-flujos-de-negocio.md` |
 | Configurar las credenciales de servicios externos | `documentacion/10-variables-de-entorno.md` |
 | Saber qué sigue y en qué orden | `documentacion/11-roadmap.md` |
+| Trabajar con ramas (GitFlow), commits, PR y CI | `documentacion/13-gitflow-y-ci.md` |
 | Retomar el desarrollo como agente (Antigravity, OpenCode, Claude Code u otro) | `AGENTS.md` |
