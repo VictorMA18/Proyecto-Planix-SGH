@@ -73,36 +73,38 @@ enum EstadoInvitacion {
 }
 
 model Organizacion {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre       String   @db.VarChar(150)
-  slug         String   @unique @db.VarChar(160)
-  zonaHoraria  String   @default("America/Lima") @map("zona_horaria") @db.VarChar(64)
-  logoUrl      String?  @map("logo_url")
-  activa       Boolean  @default(true)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre      String   @db.VarChar(150)
+  slug        String   @unique @db.VarChar(160)
+  zonaHoraria String   @default("America/Lima") @map("zona_horaria") @db.VarChar(64)
+  logoUrl     String?  @map("logo_url")
+  activa      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  miembros     MiembroOrganizacion[]
-  invitaciones Invitacion[]
+  miembros          MiembroOrganizacion[]
+  invitaciones      Invitacion[]
+  codigosInvitacion CodigoInvitacion[]
 
   @@map("organizaciones")
 }
 
 model Usuario {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  clerkId   String   @unique @map("clerk_id") @db.VarChar(255)
-  nombre    String   @db.VarChar(150)
-  nombres   String   @default("") @db.VarChar(100)
-  apellidos String   @default("") @db.VarChar(100)
-  email     String   @unique @db.VarChar(255)
-  emailVerificado Boolean @default(false) @map("email_verificado")
-  avatarUrl String?  @map("avatar_url")
-  activo    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clerkId         String   @unique @map("clerk_id") @db.VarChar(255)
+  nombre          String   @db.VarChar(150)
+  nombres         String   @default("") @db.VarChar(100)
+  apellidos       String   @default("") @db.VarChar(100)
+  email           String   @unique @db.VarChar(255)
+  emailVerificado Boolean  @default(false) @map("email_verificado")
+  avatarUrl       String?  @map("avatar_url")
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  miembros     MiembroOrganizacion[]
-  invitaciones Invitacion[]          @relation("InvitadoPor")
+  miembros          MiembroOrganizacion[]
+  invitaciones      Invitacion[]          @relation("InvitadoPor")
+  codigosInvitacion CodigoInvitacion[]    @relation("CodigoCreadoPor")
 
   @@index([email], map: "idx_usuarios_email")
   @@index([clerkId], map: "idx_usuarios_clerk_id")
@@ -147,4 +149,21 @@ model Invitacion {
   @@index([email], map: "idx_invitaciones_email")
   @@index([token], map: "idx_invitaciones_token")
   @@map("invitaciones")
+}
+
+model CodigoInvitacion {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizacionId String     @map("organizacion_id") @db.Uuid
+  codigo         String     @unique @db.VarChar(32)
+  rol            RolMiembro @default(EMPLEADO)
+  creadoPor      String     @map("creado_por") @db.Uuid
+  expiraEn       DateTime   @map("expira_en") @db.Timestamptz
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  creador      Usuario      @relation("CodigoCreadoPor", fields: [creadoPor], references: [id])
+
+  @@index([organizacionId], map: "idx_codigos_invitacion_org")
+  @@map("codigos_invitacion")
 }

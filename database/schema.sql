@@ -101,6 +101,26 @@ CREATE INDEX idx_invitaciones_email ON invitaciones (email);
 CREATE INDEX idx_invitaciones_token ON invitaciones (token);
 
 -- =====================================================================
+-- TABLA: codigos_invitacion
+-- Código genérico de invitación: no va ligado a un correo y lo puede usar
+-- cualquier persona hasta que expire; quien lo use entra con `rol`.
+-- La invitación personal (correo + rol) sigue en `invitaciones`.
+-- =====================================================================
+
+CREATE TABLE codigos_invitacion (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organizacion_id     UUID NOT NULL REFERENCES organizaciones(id) ON DELETE CASCADE,
+    codigo              VARCHAR(32) NOT NULL UNIQUE,
+    rol                 rol_miembro NOT NULL DEFAULT 'EMPLEADO',
+    creado_por          UUID NOT NULL REFERENCES usuarios(id),
+    expira_en           TIMESTAMPTZ NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_codigos_invitacion_org ON codigos_invitacion (organizacion_id);
+
+-- =====================================================================
 -- TABLA: codigos_qr (un QR por organización por día)
 -- =====================================================================
 

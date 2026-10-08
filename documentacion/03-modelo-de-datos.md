@@ -194,3 +194,17 @@ Restricción: `UNIQUE(notificacion_id, usuario_id)`.
 Restricción: `CHECK` que exige `expo_push_token` XOR `web_push_suscripcion` según `plataforma`.
 
 No existe tabla de sesiones/refresh tokens: la gestión de sesión la resuelve Clerk (ver `05-autenticacion-y-autorizacion.md`).
+
+### 13. `CodigoInvitacion`
+Código genérico de invitación (no va ligado a un correo). Lo puede usar cualquier persona mientras no expire; quien lo use entra a la organización con `rol`. La invitación personal (correo + rol) es `Invitacion`.
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| id | UUID | Identificador único |
+| organizacion_id | UUID (FK Organizacion) | — |
+| codigo | string | Código único (10 caracteres alfanuméricos), se canjea con `POST /invitaciones/{token}/aceptar` |
+| rol | enum | Rol que recibe quien use el código (`ADMIN`, `SUPERVISOR` o `EMPLEADO`) |
+| creado_por | UUID (FK Usuario) | Administrador que lo generó |
+| expira_en | timestamp | Vencimiento (5, 10 o 15 minutos desde su creación) |
+| created_at | timestamp | Fecha de creación |
+| updated_at | timestamp | Fecha de última actualización |
