@@ -106,6 +106,7 @@ Notas:
 - Los e2e usan credenciales **ficticias** de Clerk (`sk_test_ci_placeholder`, `whsec_placeholder`) porque reemplazan el guard de Clerk y no llaman a su API. El CI nunca recibe secretos reales.
 - Que los e2e corran sobre una base creada solo con `database/schema.sql` garantiza que ese archivo (la fuente de verdad del modelo) sea completo y válido.
 - Los chequeos de la app no incluyen lint porque el proyecto móvil aún no tiene ESLint configurado.
+- **pnpm 11 y los scripts de instalación:** pnpm no ejecuta los scripts de instalación de las dependencias hasta que se aprueban en `pnpm-workspace.yaml` (`allowBuilds`). Los de `api/` y `app/` **están versionados a propósito**: sin ellos `pnpm install --frozen-lockfile` falla con `ERR_PNPM_IGNORED_BUILDS` (pasó en `app/` en el primer CI). Si añades una dependencia con scripts de instalación, pnpm lo avisa al instalar: apruébala en ese archivo.
 
 ### Chequeos locales antes de abrir un PR
 
@@ -115,6 +116,15 @@ pnpm test:e2e:api       # requiere PostgreSQL en marcha con el esquema aplicado 
 ```
 
 Si falla el formato o el lint del backend: `pnpm --prefix api format` y `pnpm --prefix api lint` (ambos corrigen automáticamente).
+
+### Reproducir el CI de verdad
+
+Tu carpeta de trabajo tiene archivos que el runner no ve (`node_modules`, `.env`, archivos sin versionar), y por eso algo puede pasar en local y fallar en GitHub. Para simularlo con **solo lo versionado**:
+
+```bash
+rm -rf /tmp/ci && mkdir /tmp/ci && git archive HEAD | tar -x -C /tmp/ci
+cd /tmp/ci/app && CI=true pnpm install --frozen-lockfile   # y luego tsc, expo export, etc.
+```
 
 ## Protección de ramas (configuración única en GitHub)
 

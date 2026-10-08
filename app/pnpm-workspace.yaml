@@ -1,0 +1,5 @@
+# pnpm 11 no ejecuta los scripts de instalación de las dependencias hasta que se aprueban aquí.
+# Sin este archivo, `pnpm install --frozen-lockfile` falla con ERR_PNPM_IGNORED_BUILDS (también en el CI).
+allowBuilds:
+  browser-tabs-lock: true
+  core-js: true
