@@ -34,8 +34,8 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 |---|---|
 | Auth | `GET /auth/me`, `POST /webhooks/clerk` |
 | Organizaciones | `GET /me/membresias` (membresías del usuario con su organización, rol y n.º de miembros activos), `POST /organizaciones` |
-| Invitaciones | `POST /organizaciones/{id}/invitaciones` (devuelve el `token`), `POST /invitaciones/{token}/aceptar`; proyectados: `POST /invitaciones/{id}/reenviar`, `POST /organizaciones/{id}/codigos-invitacion` |
-| Miembros | Gestión de miembros y roles; proyectado: `GET /organizaciones/{id}/equipo` (miembros + invitaciones pendientes, con búsqueda, filtro y paginación) |
+| Invitaciones | `POST /organizaciones/{id}/invitaciones` (personal, devuelve el `token`), `POST /organizaciones/{id}/codigos-invitacion` (código genérico), `POST /invitaciones/{id}/reenviar`, `POST /invitaciones/{token}/aceptar` (sirve para ambos tipos de código) |
+| Miembros | `GET /organizaciones/{id}/equipo` (miembros activos + invitaciones pendientes, con búsqueda, filtro y paginación); `GET`, `PATCH` (rol) y `DELETE` de `/organizaciones/{id}/miembros/{miembroId}` (ver perfil, cambiar rol y quitar del equipo) |
 | QR | Obtener / generar el QR del día |
 | Asistencia | Entrada, salida, jornada de hoy, historial |
 | Tareas | CRUD de tareas, adjuntos (`multipart/form-data`), estado de asignación |
@@ -46,16 +46,15 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 
 Todo endpoint nuevo se define primero en `api/openapi.yaml`; luego se implementa. Los schemas de entidad incluyen siempre `createdAt` y `updatedAt`.
 
+## Validación y DTOs
+
+El backend valida toda entrada con **DTOs** (`class-validator` + `class-transformer`) y un `ValidationPipe` global (`src/app.setup.ts`): se descartan los campos desconocidos y se rechazan con `400` (`forbidNonWhitelisted`), los textos se recortan y los parámetros numéricos de la URL se convierten. Los mensajes de error están en español y la respuesta es `{ statusCode, message, error }` (con `message` como texto o como lista). Las respuestas también son DTOs (clases en `dto/` con un mapeador `desde(...)`), de modo que nunca se devuelven las entidades de Prisma tal cual.
+
 ## Estado de implementación
 
-Implementados en el backend: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`, `POST /organizaciones/{id}/invitaciones` y `POST /invitaciones/{token}/aceptar`. El resto de endpoints del contrato se implementa por fases (ver `11-roadmap.md`).
+Implementados en el backend: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`, `GET /organizaciones/{id}/equipo`, `GET|PATCH|DELETE /organizaciones/{id}/miembros/{miembroId}`, `POST /organizaciones/{id}/invitaciones`, `POST /organizaciones/{id}/codigos-invitacion`, `POST /invitaciones/{id}/reenviar` y `POST /invitaciones/{token}/aceptar`. El resto de endpoints del contrato se implementa por fases (ver `11-roadmap.md`).
 
-### Proyectados (contrato definido, sin backend)
-
-La pantalla «Equipo y Miembros» de la app ya funciona con datos de ejemplo que respetan estos contratos, para cambiarlos por la API real sin tocar la UI:
-
-- `GET /organizaciones/{id}/equipo?q&filtro&page&pageSize` → `PaginaEquipo` (`items` con `tipo: MIEMBRO | INVITACION`, `total`, `page`, `pageSize` y `conteos` por filtro).
-- `POST /invitaciones/{id}/reenviar` → renueva la vigencia de una invitación pendiente.
-- `POST /organizaciones/{id}/codigos-invitacion` → código genérico (rol + vigencia de 5, 10 o 30 minutos).
-
-Para implementarlos habrá que ajustar el modelo: `invitaciones.email` pasaría a ser opcional y haría falta controlar usos y vigencia del código genérico (o una tabla `codigos_invitacion`). Hasta entonces `schema.sql` y Prisma no cambian.
+Notas:
+- **Códigos de invitación:** la invitación personal (correo + rol) dura 7 días; el código genérico (solo rol) dura 5, 10 o 15 minutos y puede canjearlo cualquier persona hasta que expire. Un usuario que ya es miembro recibe `409`.
+- **Reenviar** renueva la vigencia de la invitación; el envío por correo no está implementado todavía (el administrador comparte el código a mano).
+- **Equipo:** la unión de miembros e invitaciones se arma en memoria, pensada para equipos de cientos de personas.

@@ -73,15 +73,17 @@ Servicios externos: Clerk (autenticación), Cloudinary (archivos). Ver `08-integ
 sgh-proyecto/
 ├── api/                # NestJS
 │   ├── src/
-│   │   ├── modules/
-│   │   │   ├── auth/
-│   │   │   ├── organizaciones/
-│   │   │   ├── miembros/
-│   │   │   ├── qr/
-│   │   │   ├── asistencia/
-│   │   │   ├── tareas/
-│   │   │   └── notificaciones/
-│   │   └── prisma/
+│   │   ├── common/          # Transversal: guards, decorators, interfaces, constants, utils
+│   │   ├── clerk/           # Cliente del SDK backend de Clerk
+│   │   ├── prisma/
+│   │   └── modules/
+│   │       └── <módulo>/    # auth, usuarios, organizaciones, invitaciones, equipo; luego qr, asistencia, tareas, notificaciones
+│   │           ├── controllers/   # Solo HTTP: reciben DTOs y delegan en los servicios
+│   │           ├── services/      # Reglas de negocio
+│   │           ├── dto/           # DTOs de entrada (class-validator) y de respuesta
+│   │           ├── utils/ validators/ interfaces/   # (solo si el módulo los necesita)
+│   │           └── <módulo>.module.ts
+│   ├── test/e2e/            # Pruebas e2e (Jest + supertest)
 │   └── package.json
 └── app/                # Expo (Android, iOS, Web)
     ├── app/            # Rutas (Expo Router)

@@ -38,9 +38,17 @@
    - Solo lo puede aceptar el usuario cuyo correo coincide con el de la invitación (`403` en otro caso).
    - `404` si el código no existe, `410` si ya se usó, fue cancelado o expiró (en ese caso pasa a `EXPIRADA`), `409` si ya es miembro activo.
 3. **Dos formas de invitar** (pantalla «Equipo y Miembros», botón «Invitar nuevo miembro», solo `ADMIN`):
-   - **Personal:** se indica el correo y el rol; el código solo lo puede usar ese correo.
-   - **Código genérico** *(proyectado)*: se indica el rol y la vigencia (5, 10 o 30 minutos); cualquier persona que lo use entra con ese rol.
-   - En ambos casos un modal muestra el código para copiarlo o compartirlo.
+   - **Personal** (`POST /organizaciones/{id}/invitaciones`): se indica el correo y el rol; el código solo lo puede usar ese correo y dura 7 días. No se puede crear otra invitación pendiente para el mismo correo (`409`): se reenvía la existente.
+   - **Código genérico** (`POST /organizaciones/{id}/codigos-invitacion`, tabla `codigos_invitacion`): se indica el rol y la vigencia (5, 10 o 15 minutos); cualquier persona que lo use entra con ese rol, sin importar su correo. No se consume al usarlo: lo puede canjear cada persona una vez hasta que expire (`410` después).
+   - En ambos casos un modal muestra el código para copiarlo o compartirlo, y se canjea en el mismo endpoint (`POST /invitaciones/{token}/aceptar`): primero se busca como invitación personal y, si no existe, como código genérico.
+4. **Reenviar** (`POST /invitaciones/{id}/reenviar`): un `ADMIN` renueva 7 días la vigencia de una invitación personal pendiente o expirada (`410` si ya se aceptó o canceló). Por ahora no se envía correo.
+5. **Ver el equipo** (`GET /organizaciones/{id}/equipo`): cualquier miembro ve a los miembros activos y las invitaciones pendientes, con búsqueda por nombre o correo, filtro por rol o pendientes y paginación.
+
+### 5.1. Gestión de miembros (pantalla «Equipo y Miembros», menú ⋮ de cada miembro)
+1. **Ver perfil** (`GET /organizaciones/{id}/miembros/{miembroId}`): cualquier miembro ve la identidad, el rol, el estado y la fecha de ingreso (con su antigüedad). La credencial digital y las métricas del perfil son, por ahora, datos de ejemplo marcados como tales: dependen de asistencia y tareas.
+2. **Cambiar rol** (`PATCH` con `{ rol }`): solo `ADMIN`. Pide confirmación y el cambio es inmediato. No se puede cambiar el propio rol, ni el de un `SUPER_ADMIN` (salvo siendo `SUPER_ADMIN`), ni asignar `SUPER_ADMIN`; si el miembro ya tiene ese rol responde `409`.
+3. **Quitar del equipo** (`DELETE`): solo `ADMIN`. Pide confirmación; la membresía pasa a `INACTIVO` (se conserva el historial), la persona pierde el acceso y deja de aparecer en el equipo. Puede volver con una nueva invitación o código. No se puede quitar a uno mismo.
+4. Como quien administra nunca es el propio objetivo, la organización siempre conserva al menos un administrador.
 
 ### 6. Creación de tarea con asignación automática
 1. `ADMIN` o `SUPERVISOR` crea una `Tarea`.

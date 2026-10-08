@@ -208,23 +208,45 @@ paths:
       - name: miembroId
         in: path
         required: true
+        description: Identificador de la membresía (`id` del miembro)
         schema:
           type: string
           format: uuid
+    get:
+      tags: [Miembros]
+      summary: Ver el perfil de un miembro activo de la organización
+      description: >
+        Datos de identidad del miembro y su membresía (rol, estado, fecha de ingreso).
+        Cualquier miembro de la organización puede consultarlo.
+      responses:
+        '200':
+          description: Miembro
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Miembro'
+        '400':
+          description: Identificador inválido
+        '404':
+          description: Organización inexistente, el usuario no es miembro o el miembro no existe
     patch:
       tags: [Miembros]
-      summary: Actualizar rol o estado de un miembro
+      summary: Cambiar el rol de un miembro
+      description: >
+        Solo un ADMIN (o SUPER_ADMIN) de la organización. No se puede cambiar el propio rol ni el de
+        un SUPER_ADMIN (salvo que quien lo hace también lo sea), y no se puede asignar SUPER_ADMIN.
+        El cambio es inmediato.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
+              required: [rol]
               properties:
                 rol:
-                  $ref: '#/components/schemas/RolMiembro'
-                estado:
-                  $ref: '#/components/schemas/EstadoMiembro'
+                  type: string
+                  enum: [ADMIN, SUPERVISOR, EMPLEADO]
       responses:
         '200':
           description: Miembro actualizado
@@ -232,12 +254,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Miembro'
+        '400':
+          description: Datos inválidos
+        '403':
+          description: El usuario no es ADMIN, o intenta modificar a un SUPER_ADMIN
+        '404':
+          description: Organización inexistente, el usuario no es miembro o el miembro no existe
+        '409':
+          description: Es el propio rol del usuario, o el miembro ya tiene ese rol
     delete:
       tags: [Miembros]
-      summary: Remover un miembro de la organización
+      summary: Quitar a un miembro del equipo de la organización
+      description: >
+        Solo un ADMIN (o SUPER_ADMIN). La membresía pasa a `INACTIVO` (se conserva el historial) y
+        la persona pierde el acceso a la organización; puede volver con una nueva invitación o
+        código. No se puede quitar a uno mismo ni a un SUPER_ADMIN (salvo que quien lo hace también lo sea).
       responses:
         '204':
-          description: Miembro removido
+          description: Miembro quitado
+        '403':
+          description: El usuario no es ADMIN, o intenta quitar a un SUPER_ADMIN
+        '404':
+          description: Organización inexistente, el usuario no es miembro o el miembro no existe
+        '409':
+          description: El usuario intenta quitarse a sí mismo
 
   # =====================================================================
   # INVITACIONES
@@ -277,12 +317,12 @@ paths:
         '404':
           description: Organización inexistente o el usuario no es miembro
         '409':
-          description: El correo ya pertenece a un miembro de la organización
+          description: El correo ya es miembro de la organización o ya tiene una invitación pendiente
 
   /invitaciones/{token}/aceptar:
     post:
       tags: [Invitaciones]
-      summary: Aceptar una invitación mediante su token
+      summary: Aceptar una invitación mediante su código (invitación personal o código genérico)
       parameters:
         - name: token
           in: path
@@ -297,24 +337,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/Miembro'
         '403':
-          description: La invitación fue emitida para otro correo
+          description: La invitación personal fue emitida para otro correo
         '404':
           description: Código de invitación inexistente
         '409':
           description: El usuario ya es miembro activo de la organización
         '410':
-          description: Invitación expirada o ya utilizada
+          description: Invitación o código expirado, o invitación ya utilizada
 
   /organizaciones/{organizacionId}/equipo:
     parameters:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [Miembros]
-      summary: "[PROYECTADO] Listar el equipo (miembros e invitaciones pendientes) con búsqueda, filtro y paginación"
+      summary: Listar el equipo (miembros e invitaciones pendientes) con búsqueda, filtro y paginación
       description: >
-        Lectura unificada que alimenta la pantalla «Equipo y Miembros». Mezcla miembros
-        (`tipo: MIEMBRO`) e invitaciones pendientes (`tipo: INVITACION`). Aún no implementado:
-        la app usa datos de ejemplo con esta misma forma.
+        Lectura unificada que alimenta la pantalla «Equipo y Miembros». Mezcla miembros activos
+        (`tipo: MIEMBRO`, ordenados por rol y nombre) e invitaciones personales pendientes y
+        vigentes (`tipo: INVITACION`, las más recientes primero). La búsqueda ignora mayúsculas y
+        acentos. Cualquier miembro de la organización puede consultarlo.
       parameters:
         - name: q
           in: query
@@ -334,13 +375,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginaEquipo'
-        '403':
-          description: El usuario no es miembro de la organización
+        '400':
+          description: Parámetros inválidos (página, tamaño de página o filtro)
+        '404':
+          description: Organización inexistente o el usuario no es miembro
 
   /invitaciones/{invitacionId}/reenviar:
     post:
       tags: [Invitaciones]
-      summary: "[PROYECTADO] Reenviar una invitación pendiente (renueva su vigencia)"
+      summary: Reenviar una invitación personal (renueva su vigencia 7 días; no se envía correo todavía)
       parameters:
         - name: invitacionId
           in: path
@@ -355,10 +398,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InvitacionPendiente'
+        '400':
+          description: Identificador inválido
         '403':
           description: El usuario no es ADMIN de la organización
         '404':
-          description: Invitación inexistente
+          description: Invitación inexistente (o el usuario no es miembro de su organización)
         '410':
           description: La invitación ya fue aceptada o cancelada
 
@@ -367,10 +412,11 @@ paths:
       - $ref: '#/components/parameters/OrganizacionId'
     post:
       tags: [Invitaciones]
-      summary: "[PROYECTADO] Generar un código de invitación genérico (cualquier persona con el código se une con el rol indicado)"
+      summary: Generar un código de invitación genérico (cualquier persona con el código se une con el rol indicado)
       description: >
         A diferencia de `POST /organizaciones/{id}/invitaciones`, el código no queda ligado a un
-        correo. Se canjea con `POST /invitaciones/{token}/aceptar`. Aún no implementado.
+        correo ni se consume al usarlo: lo puede canjear cualquier persona (una vez cada una)
+        hasta que expire. Se canjea con `POST /invitaciones/{token}/aceptar`.
       requestBody:
         required: true
         content:
@@ -385,7 +431,7 @@ paths:
                 vigenciaMinutos:
                   type: integer
                   description: Vigencia del código, en minutos
-                  enum: [5, 10, 30]
+                  enum: [5, 10, 15]
       responses:
         '201':
           description: Código generado
@@ -394,9 +440,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/CodigoInvitacion'
         '400':
-          description: Datos inválidos
+          description: Datos inválidos (rol o vigencia fuera de los valores permitidos)
         '403':
           description: El usuario no es ADMIN de la organización
+        '404':
+          description: Organización inexistente o el usuario no es miembro
 
   # =====================================================================
   # QR
