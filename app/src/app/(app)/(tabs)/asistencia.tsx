@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { ComingSoon } from '@/components/ui';
+import { AttendanceScreen } from '@/screens/attendance';
 
 export default function AsistenciaScreen() {
-  return <ComingSoon icon="qr-code-outline" title="Asistencia" />;
+  return <AttendanceScreen />;
 }
