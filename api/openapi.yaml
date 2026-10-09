@@ -446,6 +446,46 @@ paths:
         '404':
           description: Organización inexistente o el usuario no es miembro
 
+  /organizaciones/{organizacionId}/inicio/mio:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Asistencia]
+      summary: "[PROYECTADO] Datos personales de «Inicio» (jornada de hoy, métricas de la semana y tareas de hoy)"
+      description: >
+        Alimenta la jornada y las métricas personales de la pestaña Inicio de todos los roles (EMPLEADO, SUPERVISOR y ADMIN). Depende de asistencia
+        (Fase 2) y tareas (Fase 3): aún no implementado, la app usa datos de ejemplo con esta forma.
+      responses:
+        '200':
+          description: Inicio del usuario autenticado en la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InicioEmpleado'
+        '404':
+          description: Organización inexistente o el usuario no es miembro
+
+  /organizaciones/{organizacionId}/inicio/panel:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Asistencia]
+      summary: "[PROYECTADO] Panel de control de «Inicio» para ADMIN (presencia en directo, tareas, puntualidad semanal y asistencias recientes)"
+      description: >
+        Alimenta la pestaña Inicio del rol ADMIN (y SUPER_ADMIN). Aún no implementado: la app usa
+        datos de ejemplo con esta forma.
+      responses:
+        '200':
+          description: Panel de la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PanelAdmin'
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Organización inexistente o el usuario no es miembro
+
   # =====================================================================
   # QR
   # =====================================================================
@@ -1341,6 +1381,151 @@ components:
         expiraEn:
           type: string
           format: date-time
+
+    TareaInicio:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        prioridad:
+          type: string
+          enum: [ALTA, MEDIA, BAJA]
+        estado:
+          type: string
+          enum: [PENDIENTE, COMPLETADA]
+        estimadoMin:
+          type: integer
+          description: Duración estimada, en minutos
+        venceEn:
+          type: string
+          format: date-time
+        completadaEn:
+          type: string
+          format: date-time
+        participantes:
+          type: integer
+
+    InicioEmpleado:
+      type: object
+      properties:
+        turno:
+          type: object
+          properties:
+            nombre:
+              type: string
+              description: Mañana, Tarde o Noche
+            inicio:
+              type: string
+              format: date-time
+            fin:
+              type: string
+              format: date-time
+        estado:
+          type: string
+          enum: [DENTRO, FUERA]
+        entrada:
+          type: object
+          nullable: true
+          properties:
+            registradaEn:
+              type: string
+              format: date-time
+            puntual:
+              type: boolean
+            minutosTarde:
+              type: integer
+        semana:
+          type: object
+          properties:
+            horas:
+              type: object
+              properties:
+                total:
+                  type: number
+                variacionPct:
+                  type: number
+            puntualidad:
+              type: number
+            tareas:
+              type: object
+              properties:
+                completadas:
+                  type: integer
+                total:
+                  type: integer
+        tareasHoy:
+          type: array
+          items:
+            $ref: '#/components/schemas/TareaInicio'
+
+    PanelAdmin:
+      type: object
+      properties:
+        qr:
+          type: object
+          properties:
+            expiraEn:
+              type: string
+              format: date-time
+        presencia:
+          type: object
+          properties:
+            presentes:
+              type: integer
+            esperados:
+              type: integer
+            puntuales:
+              type: integer
+            retrasos:
+              type: integer
+            pendientes:
+              type: integer
+        tareasOrganizacion:
+          type: object
+          properties:
+            completadas:
+              type: integer
+            total:
+              type: integer
+        puntualidadSemanal:
+          type: object
+          properties:
+            promedio:
+              type: number
+            dias:
+              type: array
+              items:
+                type: object
+                properties:
+                  dia:
+                    type: string
+                  valor:
+                    type: number
+                    nullable: true
+        asistenciasRecientes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              nombre:
+                type: string
+              area:
+                type: string
+              hora:
+                type: string
+                format: date-time
+              estado:
+                type: string
+                enum: [PUNTUAL, TARDE]
+              minutosTarde:
+                type: integer
 
     CodigoQR:
       type: object

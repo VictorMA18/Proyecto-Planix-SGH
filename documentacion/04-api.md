@@ -58,3 +58,12 @@ Notas:
 - **Códigos de invitación:** la invitación personal (correo + rol) dura 7 días; el código genérico (solo rol) dura 5, 10 o 15 minutos y puede canjearlo cualquier persona hasta que expire. Un usuario que ya es miembro recibe `409`.
 - **Reenviar** renueva la vigencia de la invitación; el envío por correo no está implementado todavía (el administrador comparte el código a mano).
 - **Equipo:** la unión de miembros e invitaciones se arma en memoria, pensada para equipos de cientos de personas.
+
+### Proyectados (contrato definido, sin backend)
+
+La pestaña «Inicio» de la app ya funciona con datos de ejemplo que respetan estos contratos, para cambiarlos por la API real sin tocar la UI:
+
+- `GET /organizaciones/{id}/inicio/mio` → `InicioEmpleado` (todos los roles): turno y estado de la jornada, hora de entrada, métricas de la semana y tareas de hoy.
+- `GET /organizaciones/{id}/inicio/panel` → `PanelAdmin` (solo ADMIN, además de lo anterior): código QR vigente, presencia en directo, tareas de la organización, puntualidad semanal y asistencias recientes.
+
+Dependen de asistencia (Fase 2), tareas (Fase 3) y el QR diario. Mientras tanto, los datos reales de la pantalla son el nombre, el rol, la organización y los compañeros (que salen del equipo); el resto son datos de ejemplo.

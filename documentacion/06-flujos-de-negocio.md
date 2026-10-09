@@ -50,6 +50,14 @@
 3. **Quitar del equipo** (`DELETE`): solo `ADMIN`. Pide confirmación; la membresía pasa a `INACTIVO` (se conserva el historial), la persona pierde el acceso y deja de aparecer en el equipo. Puede volver con una nueva invitación o código. No se puede quitar a uno mismo.
 4. Como quien administra nunca es el propio objetivo, la organización siempre conserva al menos un administrador.
 
+### 5.2. Pestaña «Inicio» según el rol
+La pestaña Inicio cambia según el rol del usuario en la organización activa. Todas muestran la fecha y un saludo con su nombre.
+- **EMPLEADO:** su turno, el **tiempo activo de hoy** (cronómetro desde la hora de entrada, con el progreso y el tiempo restante del turno), las métricas de la semana (horas, puntualidad, tareas completadas), las tareas de hoy y los compañeros en turno.
+- **SUPERVISOR:** lo mismo que el empleado, más dos accesos rápidos debajo del tiempo activo: **Nueva tarea** y **Difundir aviso**.
+- **ADMIN** (y SUPER_ADMIN): su propio **tiempo activo** (la misma jornada que los demás roles) y, debajo, un **panel de control**: el QR de asistencia vigente (con cuenta atrás y botón para proyectarlo), los mismos accesos rápidos, presencia en directo (presentes frente a esperados y su distribución), tareas de la organización, puntualidad semanal y asistencias recientes.
+
+Hoy los datos de asistencia, métricas y tareas son de ejemplo (contratos `GET /organizaciones/{id}/inicio/mio` y `/inicio/panel`, ver `04-api.md`) y la pantalla lo avisa; el nombre, el rol, la organización y los compañeros son reales. Los accesos rápidos y «Proyectar» se activarán con las fases de tareas, notificaciones y QR.
+
 ### 6. Creación de tarea con asignación automática
 1. `ADMIN` o `SUPERVISOR` crea una `Tarea`.
 2. El backend obtiene todos los `MiembroOrganizacion` con `estado = ACTIVO` de la organización.
