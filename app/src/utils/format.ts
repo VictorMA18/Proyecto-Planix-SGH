@@ -63,3 +63,46 @@ export function formatTenure(iso: string | null, now = new Date()): string {
   const monthsText = rest > 0 ? `${rest} ${rest === 1 ? 'mes' : 'meses'}` : '';
   return [yearsText, monthsText].filter(Boolean).join(', ');
 }
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** `Jueves, 24 de Octubre` (fecha larga con mayúsculas iniciales). */
+export function formatLongDate(date: Date): string {
+  const text = date.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' });
+  const capitalize = (word: string) => word.charAt(0).toUpperCase() + word.slice(1);
+  return text
+    .split(' ')
+    .map((word) => (word === 'de' ? word : capitalize(word)))
+    .join(' ');
+}
+
+/** `08:02 AM` (hora local en formato de 12 horas). */
+export function formatClock12(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  const hours = date.getHours();
+  return `${pad(hours % 12 || 12)}:${pad(date.getMinutes())} ${hours < 12 ? 'AM' : 'PM'}`;
+}
+
+/** `17:00` (hora local en formato de 24 horas). */
+export function formatClock24(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Milisegundos → `[hh, mm, ss]` con dos dígitos cada uno. */
+export function splitDuration(ms: number): [string, string, string] {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return [pad(Math.floor(total / 3600)), pad(Math.floor((total % 3600) / 60)), pad(total % 60)];
+}
+
+/** `02h 18m` (tiempo restante). */
+export function formatRemaining(ms: number): string {
+  const [hours, minutes] = splitDuration(ms);
+  return `${hours}h ${minutes}m`;
+}
+
+/** `04:42` (cuenta atrás de minutos y segundos). */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
+}
