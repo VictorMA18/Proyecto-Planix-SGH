@@ -2,27 +2,31 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { RefreshControl, ScrollView, View } from 'react-native';
 
-import { AccumulatedTimeCard, ExitCard, MovementsTimeline, QrScannerCard, ShiftSettingsLink } from '@/components/attendance';
-import { ComingSoonDialog, SampleNotice } from '@/components/home';
+import {
+  AccumulatedTimeCard,
+  ExitCard,
+  MovementsTimeline,
+  QrScannerCard,
+  ShiftSettingsLink,
+} from '@/components/attendance';
 import { MembershipsState } from '@/components/organizations';
 import { ConfirmModal } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
-import { useAttendanceToday, useRegisterMovement } from '@/services/attendance';
+import { useAttendanceToday, useRegisterEntry, useRegisterExit } from '@/services/attendance';
 
-/** Asistencia: escaneo del QR, tiempo acumulado y movimientos de hoy. El administrador ve además el acceso a los turnos. */
+/** Asistencia: escaneo del QR, tiempo acumulado y movimientos de hoy. El ADMIN ve además el acceso a los turnos. */
 export const AttendanceScreen: React.FC = () => {
   const router = useRouter();
   const { canManageTeam } = useActiveOrganization();
   const today = useAttendanceToday();
-  const register = useRegisterMovement();
+  const entry = useRegisterEntry();
+  const exit = useRegisterExit();
   const [failure, setFailure] = useState<{ title: string; message: string } | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
+  const busy = entry.isPending || exit.isPending;
 
-  const submit = (tipo: 'ENTRADA' | 'SALIDA', token?: string) =>
-    register.mutate({ tipo, token }, {
-      onError: (error) => setFailure({ title: 'No se pudo registrar', message: error.message }),
-    });
+  const onError = (title: string) => (error: Error) => setFailure({ title, message: error.message });
 
   return (
     <View className="flex-1">
@@ -42,8 +46,6 @@ export const AttendanceScreen: React.FC = () => {
       >
         {canManageTeam ? <ShiftSettingsLink onPress={() => router.push('/turnos')} /> : null}
 
-        <SampleNotice />
-
         {today.isPending ? (
           <MembershipsState status="loading" loadingText="Cargando tu jornada…" />
         ) : today.isError ? (
@@ -56,12 +58,15 @@ export const AttendanceScreen: React.FC = () => {
         ) : (
           <>
             {today.data.jornada?.estadoActual === 'DENTRO' ? (
-              <ExitCard isBusy={register.isPending} onExit={() => setConfirmExit(true)} />
+              <ExitCard isBusy={exit.isPending} onExit={() => setConfirmExit(true)} />
             ) : (
-              <QrScannerCard isBusy={register.isPending} onScan={(token) => submit('ENTRADA', token)} />
+              <QrScannerCard
+                isBusy={busy}
+                onScan={(token) => entry.mutate(token, { onError: onError('No se pudo registrar la entrada') })}
+              />
             )}
             <AccumulatedTimeCard today={today.data} />
-            <MovementsTimeline today={today.data} />
+            <MovementsTimeline today={today.data} onSeeHistory={() => router.push('/historial')} />
           </>
         )}
       </ScrollView>
@@ -72,14 +77,23 @@ export const AttendanceScreen: React.FC = () => {
         title="¿Registrar tu salida?"
         message="Se guardará la hora actual como tu salida. Para volver a entrar deberás escanear el QR de nuevo."
         confirmLabel="Sí, registrar salida"
-        isLoading={register.isPending}
+        isLoading={exit.isPending}
         onConfirm={() => {
           setConfirmExit(false);
-          submit('SALIDA');
+          exit.mutate(undefined, { onError: onError('No se pudo registrar la salida') });
         }}
         onCancel={() => setConfirmExit(false)}
       />
-      <ComingSoonDialog feature={failure} onClose={() => setFailure(null)} />
+      <ConfirmModal
+        visible={!!failure}
+        icon="alert-circle-outline"
+        title={failure?.title ?? ''}
+        message={failure?.message}
+        confirmLabel="Entendido"
+        hideCancel
+        onConfirm={() => setFailure(null)}
+        onCancel={() => setFailure(null)}
+      />
     </View>
   );
 };

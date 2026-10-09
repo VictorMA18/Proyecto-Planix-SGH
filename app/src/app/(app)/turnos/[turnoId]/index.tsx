@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SampleNotice } from '@/components/home';
 import { MembershipsState } from '@/components/organizations';
 import { DeleteShiftModal, WeekdayChips } from '@/components/shifts';
 import { AppButton, ScreenHeader, UserAvatar } from '@/components/ui';
@@ -54,8 +53,6 @@ export default function ShiftDetailScreen() {
           <MembershipsState status="empty" emptyTitle="La plantilla ya no existe" emptyMessage="Pudo haber sido eliminada." />
         ) : (
           <>
-            <SampleNotice />
-
             <View style={{ borderCurve: 'continuous' }} className="w-full bg-cardBg rounded-3xl p-6 shadow-lg shadow-primary/10 gap-5">
               <Text accessibilityRole="header" className="text-2xl font-extrabold text-neutral">
                 {template.nombre}

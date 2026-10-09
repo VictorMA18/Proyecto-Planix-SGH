@@ -4,9 +4,14 @@ import React, { useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { SampleNotice } from '@/components/home';
 import { MembershipsState } from '@/components/organizations';
-import { DeleteShiftModal, ShiftActionsMenu, ShiftSummary, ShiftTemplateCard } from '@/components/shifts';
+import {
+  DeleteShiftModal,
+  ShiftActionsMenu,
+  ShiftSummary,
+  ShiftTemplateCard,
+  ToleranceModal,
+} from '@/components/shifts';
 import { AppButton, ScreenHeader } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
@@ -20,6 +25,7 @@ export default function ShiftsScreen() {
   const shifts = useShiftsConfig();
   const [menuFor, setMenuFor] = useState<ShiftTemplate | null>(null);
   const [deleting, setDeleting] = useState<ShiftTemplate | null>(null);
+  const [editingTolerance, setEditingTolerance] = useState(false);
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
@@ -69,8 +75,6 @@ export default function ShiftsScreen() {
               />
             </View>
 
-            <SampleNotice />
-
             {shifts.isPending ? (
               <MembershipsState status="loading" loadingText="Cargando los turnos…" />
             ) : shifts.isError ? (
@@ -82,7 +86,7 @@ export default function ShiftsScreen() {
               />
             ) : (
               <>
-                <ShiftSummary resumen={shifts.data.resumen} />
+                <ShiftSummary resumen={shifts.data.resumen} onEditTolerance={() => setEditingTolerance(true)} />
                 {shifts.data.plantillas.map((template, index) => (
                   <ShiftTemplateCard
                     key={template.id}
@@ -111,6 +115,11 @@ export default function ShiftsScreen() {
         }}
       />
       <DeleteShiftModal template={deleting} onClose={() => setDeleting(null)} />
+      <ToleranceModal
+        visible={editingTolerance && !!shifts.data}
+        current={shifts.data?.resumen.toleranciaMin ?? 15}
+        onClose={() => setEditingTolerance(false)}
+      />
     </SafeAreaView>
   );
 }

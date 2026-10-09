@@ -33,5 +33,5 @@ export default function HomeScreen() {
 
   // ADMIN y SUPER_ADMIN ven el panel de control; EMPLEADO y SUPERVISOR, su jornada.
   if (role === 'ADMIN' || role === 'SUPER_ADMIN') return <AdminHome />;
-  return <EmployeeHome showQuickActions={role === 'SUPERVISOR'} />;
+  return <EmployeeHome isSupervisor={role === 'SUPERVISOR'} />;
 }
