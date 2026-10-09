@@ -486,9 +486,91 @@ paths:
         '404':
           description: Organización inexistente o el usuario no es miembro
 
+  /organizaciones/{organizacionId}/turnos:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Asistencia]
+      summary: "[PROYECTADO] Configuración de turnos de la organización (plantillas, tolerancia y personal cubierto)"
+      description: >
+        Alimenta la pantalla «Configuración de turnos» (solo ADMIN y SUPER_ADMIN). Aún no implementado:
+        la app usa datos de ejemplo con esta forma. Asignar personas a las plantillas se definirá
+        cuando se implemente la fase de Asistencia.
+      responses:
+        '200':
+          description: Plantillas de turno y resumen de la organización
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionTurnos'
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Organización inexistente o el usuario no es miembro
+
+    post:
+      tags: [Asistencia]
+      summary: "[PROYECTADO] Crear una plantilla de turno (solo ADMIN)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantillaTurnoInput'
+      responses:
+        '201':
+          description: Plantilla creada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantillaTurno'
+        '400':
+          description: Datos inválidos (formato de hora, sin días)
+        '403':
+          description: El usuario no es ADMIN de la organización
+
+  /organizaciones/{organizacionId}/turnos/{turnoId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+      - name: turnoId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Asistencia]
+      summary: "[PROYECTADO] Editar el nombre, el horario o los días de una plantilla (solo ADMIN)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantillaTurnoInput'
+      responses:
+        '200':
+          description: Plantilla actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantillaTurno'
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Plantilla inexistente
+    delete:
+      tags: [Asistencia]
+      summary: "[PROYECTADO] Eliminar una plantilla; sus miembros quedan sin turno (solo ADMIN)"
+      responses:
+        '204':
+          description: Plantilla eliminada
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Plantilla inexistente
+
   # =====================================================================
   # QR
-  # =====================================================================
   /organizaciones/{organizacionId}/qr/hoy:
     parameters:
       - $ref: '#/components/parameters/OrganizacionId'
@@ -1526,6 +1608,111 @@ components:
                 enum: [PUNTUAL, TARDE]
               minutosTarde:
                 type: integer
+
+    PlantillaTurno:
+      type: object
+      description: Horario recurrente (p. ej. «Turno Mañana Regular») asignable a los miembros de la organización.
+      properties:
+        id:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        horaInicio:
+          type: string
+          example: '07:00'
+          description: Hora local `HH:mm` de inicio
+        horaFin:
+          type: string
+          example: '15:30'
+        horas:
+          type: number
+          example: 8.5
+          description: Duración del turno en horas
+        dias:
+          type: array
+          description: Días aplicables (1 = lunes … 7 = domingo)
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        asignados:
+          type: integer
+          description: Miembros con esta plantilla
+        miembroIds:
+          type: array
+          description: Identificadores de los miembros asignados
+          items:
+            type: string
+            format: uuid
+        equipo:
+          type: array
+          description: Primeros miembros asignados (para mostrar sus avatares)
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              nombre:
+                type: string
+              avatarUrl:
+                type: string
+                nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PlantillaTurnoInput:
+      type: object
+      required: [nombre, horaInicio, horaFin, dias]
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          maxLength: 60
+        horaInicio:
+          type: string
+          example: '07:00'
+        horaFin:
+          type: string
+          example: '15:30'
+          description: Si es menor que `horaInicio`, el turno cruza la medianoche
+        dias:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            minimum: 1
+            maximum: 7
+        miembroIds:
+          type: array
+          description: Miembros activos asignados a la plantilla (reemplaza la lista anterior)
+          items:
+            type: string
+            format: uuid
+
+    ConfiguracionTurnos:
+      type: object
+      properties:
+        plantillas:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlantillaTurno'
+        resumen:
+          type: object
+          properties:
+            activas:
+              type: integer
+            cubiertos:
+              type: integer
+              description: Miembros con al menos una plantilla asignada
+            toleranciaMin:
+              type: integer
+              description: Minutos de tolerancia en la entrada
 
     CodigoQR:
       type: object
