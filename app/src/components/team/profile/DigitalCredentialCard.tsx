@@ -5,7 +5,7 @@ import { Text, View } from 'react-native';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import type { MemberSample } from '@/schemas/team.schema';
 
-import { SampleBadge } from './SampleBadge';
+import { SampleBadge } from '@/components/ui';
 
 /** Credencial digital activa con la jornada de hoy y el registro de entrada (datos de ejemplo). */
 export const DigitalCredentialCard: React.FC<{ sample: MemberSample }> = ({ sample }) => (

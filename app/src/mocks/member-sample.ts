@@ -10,7 +10,6 @@ function hash(text: string): number {
 
 export function mockMemberSample(memberId: string) {
   const h = hash(memberId);
-  const turnosTotal = 20 + (h % 5);
   const tareasTotal = 12 + (h % 9);
   const periodo = new Date().toLocaleDateString('es', { month: 'long', year: 'numeric' });
 
@@ -20,7 +19,11 @@ export function mockMemberSample(memberId: string) {
     jornada: { inicio: '07:00 AM', fin: '04:30 PM' },
     registroEntrada: `06:${String(40 + (h % 19)).padStart(2, '0')} AM`,
     puntualidad: 90 + ((h % 99) / 10),
-    turnos: { completados: turnosTotal - (h % 2), total: turnosTotal },
+    horas: {
+      trabajadas: 150 + (h % 400) / 10, // 150.0 – 189.9 h
+      meta: 176,
+      variacionSemana: ((h % 160) - 40) / 10, // -4.0 – +11.9 h
+    },
     tareas: { completadas: tareasTotal - (h % 4), total: tareasTotal },
   };
 }

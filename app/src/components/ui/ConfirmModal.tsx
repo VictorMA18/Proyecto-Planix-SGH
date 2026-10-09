@@ -12,6 +12,8 @@ interface ConfirmModalProps {
   message?: string;
   confirmLabel: string;
   cancelLabel?: string;
+  /** Oculta «Cancelar» (avisos informativos con un solo botón). */
+  hideCancel?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   /** Acción destructiva: icono y botón de confirmar en rojo. */
   destructive?: boolean;
@@ -32,6 +34,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   message,
   confirmLabel,
   cancelLabel = 'Cancelar',
+  hideCancel = false,
   icon = 'help-circle-outline',
   destructive = false,
   isLoading = false,
@@ -100,7 +103,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             isLoading={isLoading}
             disabled={confirmDisabled}
           />
-          <AppButton title={cancelLabel} variant="secondary" onPress={onCancel} disabled={isLoading} />
+          {hideCancel ? null : (
+            <AppButton title={cancelLabel} variant="secondary" onPress={onCancel} disabled={isLoading} />
+          )}
         </View>
       </View>
     </View>

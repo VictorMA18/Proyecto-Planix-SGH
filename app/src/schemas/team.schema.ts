@@ -110,7 +110,12 @@ export const memberSampleSchema = z.object({
   jornada: z.object({ inicio: z.string(), fin: z.string() }),
   registroEntrada: z.string(),
   puntualidad: z.number().min(0).max(100),
-  turnos: z.object({ completados: z.number().int(), total: z.number().int() }),
+  /** Horas trabajadas en el mes, su meta y cuánto varió respecto a la semana anterior. */
+  horas: z.object({
+    trabajadas: z.number().min(0),
+    meta: z.number().positive(),
+    variacionSemana: z.number(),
+  }),
   tareas: z.object({ completadas: z.number().int(), total: z.number().int() }),
 });
 export type MemberSample = z.infer<typeof memberSampleSchema>;

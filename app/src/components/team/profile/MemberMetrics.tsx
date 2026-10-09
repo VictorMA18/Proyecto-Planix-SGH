@@ -5,29 +5,9 @@ import { Text, View } from 'react-native';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import type { MemberSample } from '@/schemas/team.schema';
 
-import { SampleBadge } from './SampleBadge';
+import { ProgressBar, SampleBadge, StatusChip } from '@/components/ui';
 
 const percent = (done: number, total: number) => (total > 0 ? (done / total) * 100 : 0);
-
-const ProgressBar: React.FC<{ value: number; color: string }> = ({ value, color }) => (
-  <View className="h-2 rounded-full bg-tertiary overflow-hidden mt-4">
-    <View
-      style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }}
-      className="h-full rounded-full"
-    />
-  </View>
-);
-
-const Chip: React.FC<{ text: string; color: string; background: string }> = ({ text, color, background }) => (
-  <View
-    style={{ backgroundColor: background, borderCurve: 'continuous' }}
-    className="self-start rounded-full px-2.5 py-1 mt-3"
-  >
-    <Text style={{ color }} className="text-[11px] font-bold">
-      {text}
-    </Text>
-  </View>
-);
 
 interface MetricCardProps {
   label: string;
@@ -54,7 +34,7 @@ interface MemberMetricsProps {
 }
 
 /**
- * Métricas del mes (datos de ejemplo). La puntualidad ocupa todo el ancho y los turnos y tareas
+ * Métricas del mes (datos de ejemplo). La puntualidad ocupa todo el ancho y las horas y tareas
  * van en dos columnas, con más aire que tres tarjetas apretadas en una fila.
  */
 export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizationName }) => {
@@ -64,7 +44,8 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
       : sample.puntualidad >= 92
         ? { label: 'Buena', color: ThemeStatus.info, background: ThemeStatus.infoBg }
         : { label: 'A mejorar', color: ThemeStatus.warningText, background: ThemeStatus.warningBg };
-  const shifts = percent(sample.turnos.completados, sample.turnos.total);
+  const hours = sample.horas;
+  const weekGain = hours.variacionSemana >= 0;
   const pendingTasks = sample.tareas.total - sample.tareas.completadas;
 
   return (
@@ -86,23 +67,24 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
 
       <MetricCard label="Puntualidad" icon="timer-outline">
         <Text className="text-4xl font-extrabold text-neutral">{sample.puntualidad.toFixed(1)}%</Text>
-        <Chip text={punctuality.label} color={punctuality.color} background={punctuality.background} />
-        <ProgressBar value={sample.puntualidad} color={punctuality.color} />
+        <StatusChip className="self-start mt-3" text={punctuality.label} color={punctuality.color} background={punctuality.background} />
+        <ProgressBar className="mt-4" value={sample.puntualidad} color={punctuality.color} />
       </MetricCard>
 
       <View className="flex-row gap-4">
         <View className="flex-1">
-          <MetricCard label="Turnos" icon="calendar-outline">
+          <MetricCard label="Horas" icon="time-outline">
             <Text className="text-3xl font-extrabold text-neutral">
-              {sample.turnos.completados}
-              <Text className="text-base font-medium text-neutral-muted">/{sample.turnos.total}</Text>
+              {hours.trabajadas.toFixed(1)}
+              <Text className="text-base font-medium text-neutral-muted">h</Text>
             </Text>
-            <Chip
-              text={`${shifts.toFixed(1)}% de meta`}
-              color={ThemeColors.primary}
-              background={ThemeColors.tertiary}
+            <StatusChip
+              className="self-start mt-3"
+              text={`${weekGain ? '+' : '−'}${Math.abs(hours.variacionSemana).toFixed(1)}h semana`}
+              color={weekGain ? ThemeStatus.success : ThemeStatus.warningText}
+              background={weekGain ? ThemeStatus.successBg : ThemeStatus.warningBg}
             />
-            <ProgressBar value={shifts} color={ThemeColors.primary} />
+            <ProgressBar className="mt-4" value={percent(hours.trabajadas, hours.meta)} color={ThemeColors.primary} />
           </MetricCard>
         </View>
 
@@ -112,12 +94,14 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
               {sample.tareas.completadas}
               <Text className="text-base font-medium text-neutral-muted">/{sample.tareas.total}</Text>
             </Text>
-            <Chip
+            <StatusChip
+              className="self-start mt-3"
               text={pendingTasks === 0 ? 'Al día' : `${pendingTasks} ${pendingTasks === 1 ? 'pendiente' : 'pendientes'}`}
               color={pendingTasks === 0 ? ThemeStatus.success : ThemeStatus.warningText}
               background={pendingTasks === 0 ? ThemeStatus.successBg : ThemeStatus.warningBg}
             />
             <ProgressBar
+              className="mt-4"
               value={percent(sample.tareas.completadas, sample.tareas.total)}
               color={ThemeColors.primary}
             />

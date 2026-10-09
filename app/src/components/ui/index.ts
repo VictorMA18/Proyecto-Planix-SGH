@@ -12,3 +12,6 @@ export * from './ChoiceChips';
 export * from './ComingSoon';
 export * from './SegmentedControl';
 export * from './ConfirmModal';
+export * from './ProgressBar';
+export * from './SampleBadge';
+export * from './StatusChip';
