@@ -1,7 +1,7 @@
 import type { Ionicons } from '@expo/vector-icons';
 
-/** Pestaña a la que se llega al elegir una organización (hoy la única funcional). */
-export const DEFAULT_TAB_HREF = '/equipo';
+/** Pestaña a la que se llega al elegir una organización (Inicio, según el rol). */
+export const DEFAULT_TAB_HREF = '/inicio';
 
 export interface TabItem {
   name: string;
