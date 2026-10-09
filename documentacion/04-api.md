@@ -52,21 +52,17 @@ El backend valida toda entrada con **DTOs** (`class-validator` + `class-transfor
 
 ## Estado de implementación
 
-Implementados en el backend: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`, `GET /organizaciones/{id}/equipo`, `GET|PATCH|DELETE /organizaciones/{id}/miembros/{miembroId}`, `POST /organizaciones/{id}/invitaciones`, `POST /organizaciones/{id}/codigos-invitacion`, `POST /invitaciones/{id}/reenviar` y `POST /invitaciones/{token}/aceptar`. El resto de endpoints del contrato se implementa por fases (ver `11-roadmap.md`).
+Implementados en el backend:
+- Auth y organizaciones: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`.
+- Equipo e invitaciones: `GET /organizaciones/{id}/equipo`, `GET|PATCH|DELETE /organizaciones/{id}/miembros/{miembroId}`, `POST /organizaciones/{id}/invitaciones`, `POST /organizaciones/{id}/codigos-invitacion`, `POST /invitaciones/{id}/reenviar` y `POST /invitaciones/{token}/aceptar`.
+- **Fase 2 (asistencia):** `GET /organizaciones/{id}/qr/hoy`, `POST /asistencia/entrada`, `POST /asistencia/salida`, `GET /asistencia/hoy`, `GET /asistencia/historial`, `GET|POST /organizaciones/{id}/turnos`, `PATCH|DELETE /organizaciones/{id}/turnos/{turnoId}`, `PATCH /organizaciones/{id}/turnos/tolerancia`, `GET /organizaciones/{id}/inicio/mio`, `GET /organizaciones/{id}/inicio/panel` y `GET /organizaciones/{id}/reportes/asistencia`.
+
+El resto del contrato (tareas, notificaciones, push tokens) se implementa por fases (ver `11-roadmap.md`).
 
 Notas:
 - **Códigos de invitación:** la invitación personal (correo + rol) dura 7 días; el código genérico (solo rol) dura 5, 10 o 15 minutos y puede canjearlo cualquier persona hasta que expire. Un usuario que ya es miembro recibe `409`.
 - **Reenviar** renueva la vigencia de la invitación; el envío por correo no está implementado todavía (el administrador comparte el código a mano).
 - **Equipo:** la unión de miembros e invitaciones se arma en memoria, pensada para equipos de cientos de personas.
-
-### Proyectados (contrato definido, sin backend)
-
-La pestaña «Inicio» de la app ya funciona con datos de ejemplo que respetan estos contratos, para cambiarlos por la API real sin tocar la UI:
-
-- `GET /organizaciones/{id}/inicio/mio` → `InicioEmpleado` (todos los roles): turno y estado de la jornada, hora de entrada, métricas de la semana y tareas de hoy.
-- `GET /organizaciones/{id}/inicio/panel` → `PanelAdmin` (solo ADMIN, además de lo anterior): código QR vigente, presencia en directo, tareas de la organización, puntualidad semanal y asistencias recientes.
-
-Dependen de asistencia (Fase 2), tareas (Fase 3) y el QR diario. Mientras tanto, los datos reales de la pantalla son el nombre, el rol, la organización y los compañeros (que salen del equipo); el resto son datos de ejemplo.
-- `GET /organizaciones/{id}/turnos` → `ConfiguracionTurnos` (solo ADMIN): plantillas de turno (horario, días aplicables y personal asignado) y resumen (plantillas activas, personal cubierto y tolerancia de entrada). Alimenta la pantalla «Configuración de turnos». `POST /organizaciones/{id}/turnos`, `PATCH` y `DELETE …/turnos/{turnoId}` crean, editan y eliminan plantillas (la app ya los usa con datos de ejemplo en memoria). Asignar personas a las plantillas se definirá junto con la fase de Asistencia.
-
-La pestaña «Asistencia» usa el contrato ya definido de `JornadaAsistencia` (`GET /asistencia/hoy`, `POST /asistencia/entrada` y `POST /asistencia/salida`) con datos de ejemplo en memoria. En la interfaz, una `SALIDA` seguida de una `ENTRADA` se muestra como «Inicio de pausa» y «Retorno»; la última `SALIDA` abierta, como «Salida». El escaneo del QR usa la cámara real (`expo-camera`); mientras no exista el backend, la app acepta cualquier código leído y lo envía como `token` a `POST /asistencia/entrada`.
+- **QR dinámico:** el texto del QR rota cada 120 s y se firma con el secreto del día; se acepta también la ventana anterior como margen. Detalle en el flujo 1 de `06-flujos-de-negocio.md`.
+- **Hora del servidor:** entradas y salidas usan siempre la hora del servidor (`RelojService`); el cliente no puede enviarla. Las fechas de calendario (`fecha`) se calculan en la zona horaria de la organización.
+- **Inicio:** las tareas siguen siendo datos de ejemplo hasta la Fase 3 (esquema `TareaInicio`, proyectado).

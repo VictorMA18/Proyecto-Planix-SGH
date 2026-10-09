@@ -5,9 +5,11 @@
 - Organizaciones y membresías con roles.
 - Generación de QR diario y ciclo de entrada/salida.
 
-### Fase 2 — Asistencia avanzada
+### Fase 2 — Asistencia avanzada ✅
 - Múltiples ciclos de entrada/salida por día sobre una misma jornada (`JornadaAsistencia` + `MovimientoAsistencia`).
-- Historial y reporte de horas trabajadas.
+- QR dinámico (rota cada 2 min), turnos por plantilla con tolerancia de entrada y puntualidad.
+- Inicio por rol con datos reales (presencia del equipo para ADMIN y SUPERVISOR).
+- Historial de jornadas y reporte de horas trabajadas (ADMIN).
 
 ### Fase 3 — Calendario y tareas
 - Calendario dinámico y creación de tareas con asignación automática.

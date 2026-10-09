@@ -12,6 +12,7 @@ Fuente de verdad: `database/schema.sql` (PostgreSQL 14+, 12 tablas, 8 enums, sin
 | zona_horaria | string | Timezone usada para cálculos de fecha/hora |
 | logo_url | string, nullable | Logo de la organización |
 | activa | boolean | Estado de la organización |
+| tolerancia_entrada_min | smallint | Minutos de gracia tras el inicio del turno para que la entrada cuente como puntual (por defecto 15, entre 0 y 120) |
 | created_at | timestamp | Fecha de creación |
 | updated_at | timestamp | Fecha de última actualización |
 
@@ -39,6 +40,7 @@ Fuente de verdad: `database/schema.sql` (PostgreSQL 14+, 12 tablas, 8 enums, sin
 | rol | enum | `SUPER_ADMIN`, `ADMIN`, `SUPERVISOR`, `EMPLEADO` |
 | estado | enum | `ACTIVO`, `INVITADO`, `INACTIVO` |
 | fecha_ingreso | timestamp, nullable | Fecha de activación |
+| plantilla_turno_id | UUID (FK PlantillaTurno), nullable | Turno asignado. Cada miembro tiene como máximo uno; al eliminar la plantilla queda en `NULL` |
 | created_at | timestamp | Fecha de creación de la membresía |
 | updated_at | timestamp | Fecha de última actualización |
 
@@ -64,7 +66,7 @@ Restricción: `UNIQUE(usuario_id, organizacion_id)`. Un usuario puede tener una 
 | id | UUID | Identificador único |
 | organizacion_id | UUID (FK Organizacion) | — |
 | fecha | date | Fecha de validez |
-| token | string | Valor único codificado en el QR |
+| token | string | Secreto del día (nunca se muestra). El QR visible es un texto firmado con HMAC de este secreto que rota cada 2 minutos (ver flujo 1 de `06-flujos-de-negocio.md`) |
 | generado_por | UUID (FK Usuario) | — |
 | expira_en | timestamp | Fin de vigencia |
 | created_at | timestamp | Fecha de creación |
@@ -85,10 +87,17 @@ Representa la jornada de UN usuario en UNA fecha dentro de UNA organización. Cu
 | hora_inicio | timestamp | Hora del primer movimiento `ENTRADA` del día (inmutable) |
 | hora_fin | timestamp, nullable | Hora del movimiento `SALIDA` más reciente; se actualiza con cada salida registrada |
 | estado_actual | enum | `DENTRO`, `FUERA` — determina si el próximo movimiento esperado es `SALIDA` o `ENTRADA` (retorno) |
+| turno_nombre | string, nullable | Copia del nombre de la plantilla vigente al registrar la primera entrada (`NULL` si ese día no tenía turno) |
+| turno_inicio | timestamp, nullable | Inicio del turno de ese día (copia) |
+| turno_fin | timestamp, nullable | Fin del turno de ese día (copia; puede ser del día siguiente si cruza la medianoche) |
+| minutos_tarde | smallint, nullable | Minutos de la primera entrada después de `turno_inicio` (0 si llegó antes) |
+| puntual | boolean, nullable | `minutos_tarde <= tolerancia_entrada_min` vigente al entrar |
 | created_at | timestamp | Fecha de creación |
 | updated_at | timestamp | Fecha de última actualización |
 
-Restricciones: `UNIQUE(usuario_id, fecha)` — una sola jornada por usuario y día. `CHECK(hora_fin >= hora_inicio)`.
+Restricciones: `UNIQUE(usuario_id, organizacion_id, fecha)` — una sola jornada por usuario, organización y día (un usuario puede marcar en varias organizaciones). `CHECK(hora_fin >= hora_inicio)`.
+
+Las columnas `turno_*`, `minutos_tarde` y `puntual` son una copia tomada al entrar: el historial y los reportes no cambian si luego se edita la plantilla o la tolerancia. El cálculo lo hace el backend, no la base de datos.
 
 ### 7. `MovimientoAsistencia`
 Cada fila es un evento puntual de escaneo (`ENTRADA`) o confirmación de salida (`SALIDA`) dentro de una jornada. La secuencia debe alternar (`ENTRADA`, `SALIDA`, `ENTRADA`, `SALIDA`, ...); esta alternancia se valida en la capa de aplicación usando `JornadaAsistencia.estado_actual`.
@@ -206,5 +215,19 @@ Código genérico de invitación (no va ligado a un correo). Lo puede usar cualq
 | rol | enum | Rol que recibe quien use el código (`ADMIN`, `SUPERVISOR` o `EMPLEADO`) |
 | creado_por | UUID (FK Usuario) | Administrador que lo generó |
 | expira_en | timestamp | Vencimiento (5, 10 o 15 minutos desde su creación) |
+| created_at | timestamp | Fecha de creación |
+| updated_at | timestamp | Fecha de última actualización |
+
+### 14. `PlantillaTurno`
+Horario recurrente de una organización (p. ej. «Turno Mañana»), asignable a sus miembros (`MiembroOrganizacion.plantilla_turno_id`).
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| id | UUID | Identificador único |
+| organizacion_id | UUID (FK Organizacion) | — |
+| nombre | string | Nombre visible (2 a 60 caracteres) |
+| hora_inicio | time | Hora local de inicio en la zona de la organización |
+| hora_fin | time | Hora local de fin; si es menor o igual que `hora_inicio`, el turno cruza la medianoche |
+| dias | smallint[] | Días en que aplica: 1 = lunes … 7 = domingo |
 | created_at | timestamp | Fecha de creación |
 | updated_at | timestamp | Fecha de última actualización |

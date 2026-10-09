@@ -451,10 +451,9 @@ paths:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [Asistencia]
-      summary: "[PROYECTADO] Datos personales de «Inicio» (jornada de hoy, métricas de la semana y tareas de hoy)"
+      summary: Jornada de hoy, turno y resumen de la semana del usuario (pestaña Inicio, todos los roles)
       description: >
-        Alimenta la jornada y las métricas personales de la pestaña Inicio de todos los roles (EMPLEADO, SUPERVISOR y ADMIN). Depende de asistencia
-        (Fase 2) y tareas (Fase 3): aún no implementado, la app usa datos de ejemplo con esta forma.
+        Las tareas de Inicio pertenecen a la Fase 3 y no forman parte de esta respuesta.
       responses:
         '200':
           description: Inicio del usuario autenticado en la organización
@@ -463,17 +462,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/InicioEmpleado'
         '404':
-          description: Organización inexistente o el usuario no es miembro
+          description: Organización inexistente o el usuario no es miembro activo
 
   /organizaciones/{organizacionId}/inicio/panel:
     parameters:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [Asistencia]
-      summary: "[PROYECTADO] Panel de control de «Inicio» para ADMIN (presencia en directo, tareas, puntualidad semanal y asistencias recientes)"
+      summary: Presencia del equipo hoy, puntualidad semanal y asistencias recientes (ADMIN y SUPERVISOR)
       description: >
-        Alimenta la pestaña Inicio del rol ADMIN (y SUPER_ADMIN). Aún no implementado: la app usa
-        datos de ejemplo con esta forma.
+        El ADMIN (y SUPER_ADMIN) recibe además el QR dinámico vigente; para el SUPERVISOR `qr` es `null`.
       responses:
         '200':
           description: Panel de la organización
@@ -482,20 +480,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/PanelAdmin'
         '403':
-          description: El usuario no es ADMIN de la organización
+          description: El usuario es EMPLEADO
         '404':
-          description: Organización inexistente o el usuario no es miembro
+          description: Organización inexistente o el usuario no es miembro activo
 
   /organizaciones/{organizacionId}/turnos:
     parameters:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [Asistencia]
-      summary: "[PROYECTADO] Configuración de turnos de la organización (plantillas, tolerancia y personal cubierto)"
-      description: >
-        Alimenta la pantalla «Configuración de turnos» (solo ADMIN y SUPER_ADMIN). Aún no implementado:
-        la app usa datos de ejemplo con esta forma. Asignar personas a las plantillas se definirá
-        cuando se implemente la fase de Asistencia.
+      summary: Configuración de turnos (plantillas, personal cubierto y tolerancia de entrada). Solo ADMIN
       responses:
         '200':
           description: Plantillas de turno y resumen de la organización
@@ -506,11 +500,12 @@ paths:
         '403':
           description: El usuario no es ADMIN de la organización
         '404':
-          description: Organización inexistente o el usuario no es miembro
-
+          description: Organización inexistente o el usuario no es miembro activo
     post:
       tags: [Asistencia]
-      summary: "[PROYECTADO] Crear una plantilla de turno (solo ADMIN)"
+      summary: Crear una plantilla de turno y asignarle miembros (solo ADMIN)
+      description: >
+        Cada miembro tiene como máximo un turno: quien estaba en otra plantilla pasa a esta.
       requestBody:
         required: true
         content:
@@ -525,7 +520,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/PlantillaTurno'
         '400':
-          description: Datos inválidos (formato de hora, sin días)
+          description: >
+            Datos inválidos (formato de hora, hora de fin igual a la de inicio, días vacíos o
+            repetidos) o algún miembro no pertenece al equipo activo
+        '403':
+          description: El usuario no es ADMIN de la organización
+
+  /organizaciones/{organizacionId}/turnos/tolerancia:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    patch:
+      tags: [Asistencia]
+      summary: Cambiar la tolerancia de entrada de la organización (solo ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [toleranciaMin]
+              properties:
+                toleranciaMin:
+                  type: integer
+                  minimum: 0
+                  maximum: 120
+      responses:
+        '200':
+          description: Configuración de turnos actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfiguracionTurnos'
+        '400':
+          description: Tolerancia fuera de rango
         '403':
           description: El usuario no es ADMIN de la organización
 
@@ -540,7 +567,7 @@ paths:
           format: uuid
     patch:
       tags: [Asistencia]
-      summary: "[PROYECTADO] Editar el nombre, el horario o los días de una plantilla (solo ADMIN)"
+      summary: Editar una plantilla y reemplazar sus miembros asignados (solo ADMIN)
       requestBody:
         required: true
         content:
@@ -554,20 +581,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PlantillaTurno'
+        '400':
+          description: Datos inválidos o algún miembro no pertenece al equipo activo
         '403':
           description: El usuario no es ADMIN de la organización
         '404':
-          description: Plantilla inexistente
+          description: Plantilla inexistente en esta organización
     delete:
       tags: [Asistencia]
-      summary: "[PROYECTADO] Eliminar una plantilla; sus miembros quedan sin turno (solo ADMIN)"
+      summary: Eliminar una plantilla; sus miembros quedan sin turno (solo ADMIN)
       responses:
         '204':
           description: Plantilla eliminada
         '403':
           description: El usuario no es ADMIN de la organización
         '404':
-          description: Plantilla inexistente
+          description: Plantilla inexistente en esta organización
 
   # =====================================================================
   # QR
@@ -576,30 +605,22 @@ paths:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [QR]
-      summary: Obtener (o generar si no existe) el código QR del día actual
+      summary: QR dinámico vigente (solo ADMIN)
+      description: >
+        Crea el QR del día si aún no existe (un secreto por organización y fecha) y devuelve el
+        texto firmado de la ventana actual, que rota cada `ventanaSeg` segundos. Una copia
+        compartida o descargada deja de servir al vencer su ventana (`expiraEn`).
       responses:
         '200':
-          description: Código QR vigente para hoy
+          description: QR vigente
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CodigoQR'
-
-  /organizaciones/{organizacionId}/qr:
-    parameters:
-      - $ref: '#/components/parameters/OrganizacionId'
-    post:
-      tags: [QR]
-      summary: Forzar la generación manual del QR del día (solo Admin)
-      responses:
-        '201':
-          description: Código QR generado
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CodigoQR'
-        '409':
-          description: Ya existe un QR generado para hoy
+                $ref: '#/components/schemas/QrDinamico'
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Organización inexistente o el usuario no es miembro activo
 
   # =====================================================================
   # ASISTENCIA
@@ -608,11 +629,9 @@ paths:
     post:
       tags: [Asistencia]
       summary: >
-        Registrar una entrada escaneando el código QR del día. Cubre dos
-        casos: si el usuario no tiene jornada abierta hoy, crea una nueva
-        `JornadaAsistencia` (primera entrada del día); si ya tiene una
-        jornada en estado `FUERA` (por una salida intermedia), registra un
-        retorno sobre esa misma jornada, validando de nuevo el QR.
+        Registrar una entrada escaneando el QR vigente. Si el usuario no tiene jornada hoy en esa
+        organización, la crea (copiando su turno y evaluando la puntualidad); si la jornada está
+        `FUERA`, registra un retorno sobre la misma jornada.
       requestBody:
         required: true
         content:
@@ -623,45 +642,43 @@ paths:
               properties:
                 token:
                   type: string
-                  description: Token leído del código QR
+                  maxLength: 200
+                  description: Texto leído del QR (la organización sale de él)
       responses:
         '201':
-          description: >
-            Entrada (o retorno) registrado. Devuelve la jornada del día con
-            sus movimientos.
+          description: Entrada (o retorno) registrada; devuelve la jornada con sus movimientos
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/JornadaAsistencia'
         '400':
           description: >
-            QR inválido o expirado, o la jornada ya se encuentra en estado
-            `DENTRO` (ya hay un ciclo abierto y debe confirmarse salida
-            antes de una nueva entrada).
+            QR inválido, alterado o vencido, o la jornada ya está `DENTRO` (debe registrarse la
+            salida antes de una nueva entrada).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: El usuario no es miembro activo de la organización del QR
 
   /asistencia/salida:
     post:
       tags: [Asistencia]
       summary: >
-        Confirmar una salida (intermedia o final) sobre la jornada del día
-        en curso. No requiere escanear QR. `JornadaAsistencia.hora_fin` se
-        actualiza para reflejar siempre la última salida registrada; si el
-        usuario no vuelve a marcar entrada ese día, esta queda como la
-        salida oficial de la jornada.
+        Registrar una salida (intermedia o final) sobre la jornada abierta. No requiere QR y la
+        hora la pone siempre el servidor. `horaFin` queda con la última salida.
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [organizacionId]
               properties:
-                horaSalida:
+                organizacionId:
                   type: string
-                  format: date-time
-                  description: Opcional. Si se omite, se usa la hora del servidor.
+                  format: uuid
       responses:
         '200':
           description: Salida registrada; devuelve la jornada actualizada
@@ -669,13 +686,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JornadaAsistencia'
+        '400':
+          description: Cuerpo inválido (incluye campos no permitidos como `horaSalida`)
         '404':
-          description: No hay una jornada en estado DENTRO para el usuario hoy
+          description: No hay una jornada `DENTRO` o el usuario no es miembro activo
 
   /asistencia/hoy:
     get:
       tags: [Asistencia]
-      summary: Obtener el estado actual de la jornada de hoy del usuario autenticado (incluye sus movimientos)
+      summary: Turno de hoy, tolerancia y jornada en curso del usuario autenticado
       parameters:
         - name: organizacionId
           in: query
@@ -685,13 +704,13 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Jornada de hoy del usuario autenticado
+          description: Estado de asistencia de hoy (`jornada` es `null` si aún no registra entrada)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JornadaAsistencia'
+                $ref: '#/components/schemas/AsistenciaHoy'
         '404':
-          description: El usuario aún no tiene jornada registrada hoy
+          description: Organización inexistente o el usuario no es miembro activo
 
   /asistencia/historial:
     get:
@@ -1100,7 +1119,7 @@ paths:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [Reportes]
-      summary: Reporte de horas trabajadas por usuario en un rango de fechas
+      summary: Horas trabajadas y puntualidad por miembro en un rango de fechas (solo ADMIN)
       parameters:
         - name: desde
           in: query
@@ -1111,23 +1130,27 @@ paths:
         - name: hasta
           in: query
           required: true
+          description: No anterior a `desde`; el rango no puede superar 92 días
           schema:
             type: string
             format: date
-        - name: usuarioId
+        - name: miembroId
           in: query
+          description: Reporte individual de un miembro
           schema:
             type: string
             format: uuid
       responses:
         '200':
-          description: Reporte generado
+          description: Reporte generado (incluye a todos los miembros activos)
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ReporteHorasUsuario'
+                $ref: '#/components/schemas/ReporteAsistencia'
+        '400':
+          description: Fechas inválidas, rango invertido o mayor de 92 días
+        '403':
+          description: El usuario no es ADMIN de la organización
 
 components:
   securitySchemes:
@@ -1466,6 +1489,9 @@ components:
 
     TareaInicio:
       type: object
+      description: >
+        [PROYECTADO, Fase 3] Tarea tal como se mostrará en «Inicio». La app usa datos de ejemplo con
+        esta forma hasta que exista el módulo de tareas.
       properties:
         id:
           type: string
@@ -1494,91 +1520,100 @@ components:
 
     InicioEmpleado:
       type: object
+      description: Jornada de hoy y semana del usuario (todos los roles). Las tareas son de la Fase 3.
       properties:
+        fecha:
+          type: string
+          format: date
+        toleranciaMin:
+          type: integer
         turno:
           type: object
+          nullable: true
           properties:
             nombre:
               type: string
-              description: Mañana, Tarde o Noche
             inicio:
               type: string
               format: date-time
             fin:
               type: string
               format: date-time
+            objetivoMin:
+              type: integer
+              description: Duración del turno en minutos
         estado:
-          type: string
-          enum: [DENTRO, FUERA]
+          $ref: '#/components/schemas/EstadoJornada'
         entrada:
           type: object
           nullable: true
+          description: Primera entrada de hoy
           properties:
             registradaEn:
               type: string
               format: date-time
             puntual:
               type: boolean
+              nullable: true
+              description: null si ese día no tenía turno
             minutosTarde:
               type: integer
+              nullable: true
+        minutosTrabajados:
+          type: integer
+          description: Trabajado hoy hasta `calculadoEn`
+        calculadoEn:
+          type: string
+          format: date-time
         semana:
           type: object
           properties:
-            horas:
-              type: object
-              properties:
-                total:
-                  type: number
-                variacionPct:
-                  type: number
+            minutosTrabajados:
+              type: integer
+            diasTrabajados:
+              type: integer
+            variacionPct:
+              type: number
+              nullable: true
+              description: Frente al mismo tramo de la semana anterior
             puntualidad:
               type: number
-            tareas:
-              type: object
-              properties:
-                completadas:
-                  type: integer
-                total:
-                  type: integer
-        tareasHoy:
-          type: array
-          items:
-            $ref: '#/components/schemas/TareaInicio'
+              nullable: true
+              description: Porcentaje de días puntuales entre los días con turno
 
     PanelAdmin:
       type: object
       properties:
+        fecha:
+          type: string
+          format: date
         qr:
-          type: object
-          properties:
-            expiraEn:
-              type: string
-              format: date-time
+          allOf:
+            - $ref: '#/components/schemas/QrDinamico'
+          nullable: true
+          description: Solo para ADMIN (null para SUPERVISOR)
         presencia:
           type: object
           properties:
-            presentes:
-              type: integer
             esperados:
               type: integer
+              description: Miembros activos con turno hoy
+            presentes:
+              type: integer
+              description: Personas DENTRO ahora mismo
             puntuales:
               type: integer
             retrasos:
               type: integer
             pendientes:
               type: integer
-        tareasOrganizacion:
-          type: object
-          properties:
-            completadas:
-              type: integer
-            total:
-              type: integer
+              description: Esperados que aún no registran entrada
         puntualidadSemanal:
           type: object
           properties:
             promedio:
               type: number
+              nullable: true
             dias:
               type: array
               items:
@@ -1586,28 +1621,44 @@ components:
                 properties:
                   dia:
                     type: string
+                    enum: [L, M, X, J, V]
+                  fecha:
+                    type: string
+                    format: date
                   valor:
                     type: number
                     nullable: true
         asistenciasRecientes:
           type: array
+          description: Últimas primeras entradas de hoy (máximo 4)
           items:
             type: object
             properties:
               id:
                 type: string
+                format: uuid
+                description: Id de la jornada
+              miembroId:
+                type: string
+                format: uuid
+                nullable: true
               nombre:
                 type: string
+              avatarUrl:
+                type: string
+                nullable: true
               area:
                 type: string
+                description: Turno con el que entró («Sin turno» si no tenía)
               hora:
                 type: string
                 format: date-time
               estado:
                 type: string
-                enum: [PUNTUAL, TARDE]
+                enum: [PUNTUAL, TARDE, SIN_TURNO]
               minutosTarde:
                 type: integer
+                nullable: true
 
     PlantillaTurno:
       type: object
@@ -1647,13 +1698,14 @@ components:
             format: uuid
         equipo:
           type: array
-          description: Primeros miembros asignados (para mostrar sus avatares)
+          description: Primeros 8 miembros asignados, por nombre (para mostrar sus avatares)
           items:
             type: object
             properties:
               id:
                 type: string
                 format: uuid
+                description: Id de la membresía
               nombre:
                 type: string
               avatarUrl:
@@ -1714,32 +1766,23 @@ components:
               type: integer
               description: Minutos de tolerancia en la entrada
 
-    CodigoQR:
+    QrDinamico:
       type: object
+      description: >
+        Texto del QR para la ventana actual (`PLX1.<codigoQrId>.<ventana>.<firma>`). El secreto del día
+        (`codigos_qr.token`) nunca sale del backend.
       properties:
-        id:
+        token:
           type: string
-          format: uuid
-        organizacionId:
-          type: string
-          format: uuid
         fecha:
           type: string
           format: date
-        token:
-          type: string
         expiraEn:
           type: string
           format: date-time
-        qrImageUrl:
-          type: string
-          description: URL o data-URI de la imagen del QR renderizada
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
+          description: Fin de la ventana actual
+        ventanaSeg:
+          type: integer
 
     MovimientoAsistencia:
       type: object
@@ -1766,10 +1809,9 @@ components:
     JornadaAsistencia:
       type: object
       description: >
-        Jornada de un usuario en una fecha determinada. `horaInicio` es el
-        primer escaneo del día; `horaFin` refleja siempre la última salida
-        registrada. Entre ambas puede haber varios `movimientos`
-        (pares ENTRADA/SALIDA intermedios).
+        Jornada de un usuario en una fecha y organización. `horaInicio` es el primer escaneo del
+        día; `horaFin`, la última salida. `turno`, `minutosTarde` y `puntual` se copian al registrar
+        la primera entrada (null si ese día no tenía turno).
       properties:
         id:
           type: string
@@ -1793,18 +1835,69 @@ components:
           type: string
           format: date-time
           nullable: true
-          description: Hora de la última salida registrada; null mientras el usuario esté DENTRO sin haber salido aún
         estadoActual:
           $ref: '#/components/schemas/EstadoJornada'
+        turno:
+          type: object
+          nullable: true
+          properties:
+            nombre:
+              type: string
+            inicio:
+              type: string
+              format: date-time
+            fin:
+              type: string
+              format: date-time
+        minutosTarde:
+          type: integer
+          nullable: true
+        puntual:
+          type: boolean
+          nullable: true
+        minutosTrabajados:
+          type: integer
+          description: Tramos ENTRADA → SALIDA; un tramo abierto cuenta hasta ahora
         movimientos:
           type: array
-          description: Movimientos ENTRADA/SALIDA de la jornada, en orden cronológico
+          description: Movimientos ENTRADA/SALIDA en orden cronológico
           items:
             $ref: '#/components/schemas/MovimientoAsistencia'
         createdAt:
           type: string
           format: date-time
         updatedAt:
+          type: string
+          format: date-time
+
+    AsistenciaHoy:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date
+        toleranciaMin:
+          type: integer
+        turno:
+          type: object
+          nullable: true
+          properties:
+            nombre:
+              type: string
+            inicio:
+              type: string
+              format: date-time
+            fin:
+              type: string
+              format: date-time
+            objetivoMin:
+              type: integer
+              description: Duración del turno en minutos
+        jornada:
+          allOf:
+            - $ref: '#/components/schemas/JornadaAsistencia'
+          nullable: true
+        calculadoEn:
           type: string
           format: date-time
 
@@ -2033,17 +2126,49 @@ components:
           type: string
           format: date-time
 
-    ReporteHorasUsuario:
+    ReporteAsistencia:
       type: object
       properties:
-        usuarioId:
-          type: string
-          format: uuid
-        nombreUsuario:
-          type: string
-        fecha:
+        desde:
           type: string
           format: date
-        horasTrabajadas:
-          type: number
-          format: float
+        hasta:
+          type: string
+          format: date
+        totalMinutos:
+          type: integer
+        filas:
+          type: array
+          items:
+            type: object
+            properties:
+              miembroId:
+                type: string
+                format: uuid
+              nombre:
+                type: string
+              email:
+                type: string
+                format: email
+              avatarUrl:
+                type: string
+                nullable: true
+              rol:
+                $ref: '#/components/schemas/RolMiembro'
+              estado:
+                $ref: '#/components/schemas/EstadoMiembro'
+              turno:
+                type: string
+                nullable: true
+                description: Plantilla asignada actualmente
+              diasTrabajados:
+                type: integer
+              minutosTrabajados:
+                type: integer
+              puntuales:
+                type: integer
+              tardanzas:
+                type: integer
+              minutosTarde:
+                type: integer
+

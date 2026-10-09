@@ -20,11 +20,13 @@ El rol se evalúa por membresía (`MiembroOrganizacion.rol`), no por usuario. Ca
 | Configurar organización | ✅ | ✅ | ❌ | ❌ |
 | Invitar / gestionar usuarios | ✅ | ✅ | ❌ | ❌ |
 | Asignar roles | ✅ | ✅ | ❌ | ❌ |
-| Generar código QR del día | ✅ | ✅ | ❌ | ❌ |
+| Ver, proyectar y compartir el QR dinámico | ✅ | ✅ | ❌ | ❌ |
+| Configurar turnos y tolerancia de entrada | ✅ | ✅ | ❌ | ❌ |
+| Ver presencia del equipo hoy (Inicio) | ✅ | ✅ | ✅ | ❌ |
 | Escanear QR (marcar entrada) | ✅ | ✅ | ✅ | ✅ |
 | Confirmar salida propia | ✅ | ✅ | ✅ | ✅ |
 | Crear tareas / difusiones | ✅ | ✅ | ✅ | ❌ |
 | Ver tareas propias asignadas | ✅ | ✅ | ✅ | ✅ |
 | Ver reporte individual | ✅ | ✅ | ✅ | ✅ |
-| Ver reportes de su equipo | ✅ | ✅ | ✅ | ❌ |
+| Ver reporte de horas del equipo | ✅ | ✅ | ❌ | ❌ |
 | Ver reportes globales (multi-org) | ✅ | ❌ | ❌ | ❌ |

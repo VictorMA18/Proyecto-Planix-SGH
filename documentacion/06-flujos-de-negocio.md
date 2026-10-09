@@ -1,15 +1,17 @@
 # Flujos de Negocio
 
-### 1. Generación de QR diario
-1. `ADMIN` solicita el QR del día para su organización.
-2. Si no existe `CodigoQR` para `(organizacion_id, fecha_actual)`, se genera uno con `expira_en = fin del día` en la zona horaria de la organización.
-3. Si ya existe, se retorna el existente.
+### 1. QR dinámico de asistencia
+1. `ADMIN` pide el QR vigente (`GET /organizaciones/{id}/qr/hoy`, también incluido en el panel de Inicio).
+2. Si no existe `CodigoQR` para `(organizacion_id, fecha_actual)` (fecha en la zona horaria de la organización), se crea con un **secreto aleatorio** en `token` y `expira_en = medianoche local`. El secreto nunca sale del backend.
+3. El texto que se muestra en el QR es `PLX1.<codigoQrId>.<ventana>.<firma>`, donde `ventana` cambia cada 120 s y `firma` es un HMAC-SHA256 del id y la ventana con el secreto del día. La respuesta incluye `expiraEn` (fin de la ventana) para la cuenta atrás.
+4. El administrador puede proyectarlo, compartirlo o descargarlo; la copia vale solo hasta que vence su ventana (la app lo indica: «Válido hasta HH:mm»). Por eso no se admite un QR impreso permanente.
 
 ### 2. Marcar entrada (primera del día o retorno)
-1. El usuario escanea el QR y envía su `token` al backend.
-2. Validaciones: el token pertenece a la organización del usuario y está vigente para la fecha actual.
-3. Si no existe `JornadaAsistencia` para `(usuario_id, fecha_actual)`:
+1. El usuario escanea el QR y envía su `token` al backend (`POST /asistencia/entrada`). La organización sale del propio token.
+2. Validaciones: formato, firma (comparación en tiempo constante), ventana actual o la anterior (margen de escaneo) y que el QR sea el de hoy (`400` si falla). El usuario debe ser miembro `ACTIVO` de esa organización (`404` si no).
+3. Si no existe `JornadaAsistencia` para `(usuario_id, organizacion_id, fecha_actual)`:
    - Se crea la jornada con `hora_inicio = ahora`, `estado_actual = DENTRO`, `codigo_qr_id` del token escaneado.
+   - Si el miembro tiene turno ese día, se copian `turno_nombre`, `turno_inicio` y `turno_fin` y se evalúa la **puntualidad**: `minutos_tarde = max(0, ahora − turno_inicio)` y `puntual = minutos_tarde ≤ tolerancia_entrada_min`.
    - Se crea un `MovimientoAsistencia` tipo `ENTRADA`.
 4. Si ya existe una jornada para hoy y su `estado_actual = FUERA` (el usuario había registrado una salida intermedia):
    - Se crea un nuevo `MovimientoAsistencia` tipo `ENTRADA` (retorno) asociado a esa misma jornada.
@@ -17,8 +19,8 @@
 5. Si la jornada ya está en `estado_actual = DENTRO`, se rechaza la solicitud (ya hay un ciclo abierto).
 
 ### 3. Confirmar salida (intermedia o final)
-1. El usuario confirma salida desde la app (no requiere escanear QR).
-2. Debe existir una `JornadaAsistencia` del día en `estado_actual = DENTRO`.
+1. El usuario confirma salida desde la app (no requiere escanear QR). La hora la pone siempre el servidor.
+2. Debe existir una `JornadaAsistencia` en `estado_actual = DENTRO` (la de hoy o, si quedó abierta, la de ayer para turnos que cruzan la medianoche); si no, `404`.
 3. Se crea un `MovimientoAsistencia` tipo `SALIDA` con `hora = ahora`.
 4. Se actualiza la jornada: `hora_fin = ahora` (siempre queda con la última salida registrada), `estado_actual = FUERA`.
 5. El sistema no distingue de antemano si esta salida es "final" o "intermedia": simplemente queda como la última hasta que ocurra un nuevo retorno (flujo 2) ese mismo día. Si el usuario no vuelve a escanear el QR, esa `hora_fin` es la salida oficial del día.
@@ -51,12 +53,21 @@
 4. Como quien administra nunca es el propio objetivo, la organización siempre conserva al menos un administrador.
 
 ### 5.2. Pestaña «Inicio» según el rol
-La pestaña Inicio cambia según el rol del usuario en la organización activa. Todas muestran la fecha y un saludo con su nombre.
-- **EMPLEADO:** su turno, el **tiempo activo de hoy** (cronómetro desde la hora de entrada, con el progreso y el tiempo restante del turno), las métricas de la semana (horas, puntualidad, tareas completadas), las tareas de hoy y los compañeros en turno.
-- **SUPERVISOR:** lo mismo que el empleado, más dos accesos rápidos debajo del tiempo activo: **Nueva tarea** y **Difundir aviso**.
-- **ADMIN** (y SUPER_ADMIN): su propio **tiempo activo** (la misma jornada que los demás roles) y, debajo, un **panel de control**: el QR de asistencia vigente (con cuenta atrás y botón para proyectarlo), los mismos accesos rápidos, presencia en directo (presentes frente a esperados y su distribución), tareas de la organización, puntualidad semanal y asistencias recientes.
+La pestaña Inicio cambia según el rol del usuario en la organización activa. Todas muestran la fecha, un saludo con su nombre y su turno de hoy (`GET /organizaciones/{id}/inicio/mio`).
+- **EMPLEADO:** el **tiempo activo de hoy** (suma de tramos de la jornada real, con el progreso del turno), las métricas de la semana (horas frente a la semana anterior y puntualidad), las tareas de hoy (ejemplo hasta la Fase 3) y los compañeros.
+- **SUPERVISOR:** lo mismo, más los accesos rápidos **Nueva tarea** y **Difundir aviso** (próximamente) y la **presencia del equipo** y las **asistencias recientes** (`/inicio/panel`, sin QR).
+- **ADMIN** (y SUPER_ADMIN): su propio tiempo activo y el **panel de control**: el QR dinámico (cuenta atrás, proyectar, compartir y descargar), presencia en directo, puntualidad semanal, asistencias recientes y acceso al **reporte de horas**.
 
-Hoy los datos de asistencia, métricas y tareas son de ejemplo (contratos `GET /organizaciones/{id}/inicio/mio` y `/inicio/panel`, ver `04-api.md`) y la pantalla lo avisa; el nombre, el rol, la organización y los compañeros son reales. Los accesos rápidos y «Proyectar» se activarán con las fases de tareas, notificaciones y QR.
+### 5.3. Turnos y puntualidad
+1. Un `ADMIN` crea plantillas de turno (nombre, hora de inicio y fin locales, días de la semana) y les asigna miembros activos. **Cada miembro tiene como máximo un turno:** asignarlo a una plantilla lo saca de la anterior; eliminar una plantilla deja a sus miembros sin turno.
+2. La **tolerancia de entrada** es de la organización (por defecto 15 min, entre 0 y 120).
+3. Los **esperados** de un día son los miembros activos cuya plantilla incluye ese día de la semana. **Presentes** son los que están `DENTRO`; **pendientes**, los esperados sin jornada ese día.
+4. La puntualidad semanal de un día es el porcentaje de primeras entradas puntuales entre las jornadas con turno.
+5. Si a alguien se le asigna un turno después de registrar su entrada del día, «hoy» ya muestra ese turno (progreso y salida prevista), pero la puntualidad de esa entrada queda sin evaluar: solo se calcula al registrar la primera entrada.
+
+### 5.4. Historial y reporte de horas
+1. **Historial** (`GET /asistencia/historial`): cada persona ve sus jornadas, de la más reciente a la más antigua, con entrada, salida, minutos trabajados y puntualidad.
+2. **Reporte** (`GET /organizaciones/{id}/reportes/asistencia`, solo `ADMIN`): por miembro, en un rango de hasta 92 días: días trabajados, minutos trabajados (suma de tramos `ENTRADA → SALIDA`, calculada en `ReportesService`), puntuales, tardanzas y minutos de retraso. Incluye a todos los miembros activos, aunque no hayan trabajado, y a los inactivos con jornadas en el rango.
 
 ### 6. Creación de tarea con asignación automática
 1. `ADMIN` o `SUPERVISOR` crea una `Tarea`.
