@@ -5,7 +5,7 @@ import { ProgressBar, StatusChip } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import type { AttendanceToday } from '@/schemas/attendance.schema';
-import { workedMs } from '@/utils/attendance';
+import { liveWorkedMs } from '@/utils/attendance';
 
 const tabular = { fontVariant: ['tabular-nums' as const] };
 
@@ -16,15 +16,16 @@ function splitHm(ms: number): [string, string] {
   return [pad(Math.floor(minutes / 60)), pad(minutes % 60)];
 }
 
-/** Tiempo acumulado hoy frente al objetivo del turno, con el estado actual de la jornada. */
+/** Tiempo acumulado hoy frente a la duración del turno, con el estado actual de la jornada. */
 export const AccumulatedTimeCard: React.FC<{ today: AttendanceToday }> = ({ today }) => {
   const now = useNow(1000);
-  const estado = today.jornada?.estadoActual;
-  const worked = workedMs(today.jornada?.movimientos ?? [], now);
-  const goal = today.turno.objetivoMin * 60_000;
-  const progress = Math.min(100, (worked / goal) * 100);
+  const jornada = today.jornada;
+  const estado = jornada?.estadoActual;
+  const worked = jornada ? liveWorkedMs(jornada.minutosTrabajados, estado, today.calculadoEn, now) : 0;
+  const goal = today.turno ? today.turno.objetivoMin * 60_000 : null;
+  const progress = goal ? Math.min(100, (worked / goal) * 100) : 0;
   const [hours, minutes] = splitHm(worked);
-  const [goalHours, goalMinutes] = splitHm(goal);
+  const [goalHours, goalMinutes] = goal ? splitHm(goal) : ['', ''];
 
   return (
     <View
@@ -45,21 +46,33 @@ export const AccumulatedTimeCard: React.FC<{ today: AttendanceToday }> = ({ toda
       <View
         accessible
         accessibilityRole="timer"
-        accessibilityLabel={`Tiempo acumulado hoy: ${Number(hours)} horas y ${Number(minutes)} minutos de ${Number(goalHours)} horas`}
+        accessibilityLabel={`Tiempo acumulado hoy: ${Number(hours)} horas y ${Number(minutes)} minutos${
+          goal ? ` de ${Number(goalHours)} horas y ${Number(goalMinutes)} minutos` : ''
+        }`}
         className="flex-row items-baseline flex-wrap mt-3"
       >
         <Text style={tabular} className="text-5xl font-extrabold text-neutral">
           {hours}h {minutes}m
         </Text>
-        <Text style={tabular} className="ml-2 text-base font-semibold text-neutral-muted">
-          / {goalHours}h {goalMinutes}m
-        </Text>
+        {goal ? (
+          <Text style={tabular} className="ml-2 text-base font-semibold text-neutral-muted">
+            / {goalHours}h {goalMinutes}m
+          </Text>
+        ) : null}
       </View>
 
-      <Text className="mt-2 text-sm text-neutral-muted">{today.turno.nombre}</Text>
+      <Text className="mt-2 text-sm text-neutral-muted">
+        {today.turno ? today.turno.nombre : 'Sin turno asignado hoy'}
+        {jornada?.puntual === true ? ' · Entrada puntual' : ''}
+        {jornada?.puntual === false ? ` · Entrada con ${jornada.minutosTarde} min de retraso` : ''}
+      </Text>
 
-      <ProgressBar className="mt-4" value={progress} color={ThemeColors.primary} />
-      <Text className="mt-2 text-xs font-bold text-primary">{Math.round(progress)}% de la jornada</Text>
+      {goal ? (
+        <>
+          <ProgressBar className="mt-4" value={progress} color={ThemeColors.primary} />
+          <Text className="mt-2 text-xs font-bold text-primary">{Math.round(progress)}% de la jornada</Text>
+        </>
+      ) : null}
     </View>
   );
 };

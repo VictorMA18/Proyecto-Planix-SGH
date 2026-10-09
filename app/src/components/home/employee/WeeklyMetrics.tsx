@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 
-import { StatusChip } from '@/components/ui';
+import { SampleBadge, StatusChip } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
-import type { EmployeeHome } from '@/schemas/home.schema';
+import type { EmployeeHome, HomeTasks } from '@/schemas/home.schema';
 
 import { SectionHeader } from '../shared';
 
@@ -31,56 +31,69 @@ const Metric: React.FC<MetricProps> = ({ icon, label, children }) => (
 
 interface WeeklyMetricsProps {
   semana: EmployeeHome['semana'];
-  onSeeReport: () => void;
+  /** Tareas de ejemplo hasta la Fase 3. */
+  tareas: HomeTasks['semana'] | undefined;
+  onSeeHistory: () => void;
 }
 
-/** Horas, puntualidad y tareas completadas de la semana. */
-export const WeeklyMetrics: React.FC<WeeklyMetricsProps> = ({ semana, onSeeReport }) => {
-  const { horas, puntualidad, tareas } = semana;
-  const hoursUp = horas.variacionPct >= 0;
+/** Horas y puntualidad reales de la semana, más el avance de tareas (ejemplo). */
+export const WeeklyMetrics: React.FC<WeeklyMetricsProps> = ({ semana, tareas, onSeeHistory }) => {
+  const hours = semana.minutosTrabajados / 60;
+  const change = semana.variacionPct;
+  const up = (change ?? 0) >= 0;
   const punctuality =
-    puntualidad >= 95
-      ? { text: 'Óptimo', color: ThemeStatus.success, background: ThemeStatus.successBg }
-      : puntualidad >= 90
-        ? { text: 'Buena', color: ThemeStatus.info, background: ThemeStatus.infoBg }
-        : { text: 'A mejorar', color: ThemeStatus.warningText, background: ThemeStatus.warningBg };
-  const done = tareas.total > 0 ? Math.round((tareas.completadas / tareas.total) * 100) : 0;
+    semana.puntualidad === null
+      ? null
+      : semana.puntualidad >= 95
+        ? { text: 'Óptimo', color: ThemeStatus.success, background: ThemeStatus.successBg }
+        : semana.puntualidad >= 90
+          ? { text: 'Buena', color: ThemeStatus.info, background: ThemeStatus.infoBg }
+          : { text: 'A mejorar', color: ThemeStatus.warningText, background: ThemeStatus.warningBg };
+  const done = tareas && tareas.total > 0 ? Math.round((tareas.completadas / tareas.total) * 100) : 0;
 
   return (
     <View className="gap-4">
-      <SectionHeader title="Métricas de la semana" action={{ label: 'Ver reporte', onPress: onSeeReport }} />
+      <SectionHeader title="Métricas de la semana" action={{ label: 'Ver historial', onPress: onSeeHistory }} />
 
       <View className="flex-row gap-3">
         <Metric icon="timer-outline" label="Horas trab.">
           <Text className="mt-1 text-2xl font-extrabold text-neutral">
-            {horas.total.toFixed(1)}
+            {hours.toFixed(1)}
             <Text className="text-base font-medium text-neutral-muted">h</Text>
           </Text>
-          <StatusChip
-            className="self-start mt-3"
-            icon={hoursUp ? 'trending-up' : 'trending-down'}
-            text={`${hoursUp ? '+' : '−'}${Math.abs(horas.variacionPct).toFixed(1)}%`}
-            color={hoursUp ? ThemeStatus.success : ThemeStatus.warningText}
-            background={hoursUp ? ThemeStatus.successBg : ThemeStatus.warningBg}
-          />
+          {change === null ? (
+            <Text className="mt-3 text-[11px] text-neutral-muted">{semana.diasTrabajados} días</Text>
+          ) : (
+            <StatusChip
+              className="self-start mt-3"
+              icon={up ? 'trending-up' : 'trending-down'}
+              text={`${up ? '+' : '−'}${Math.abs(change).toFixed(1)}%`}
+              color={up ? ThemeStatus.success : ThemeStatus.warningText}
+              background={up ? ThemeStatus.successBg : ThemeStatus.warningBg}
+            />
+          )}
         </Metric>
 
         <Metric icon="shield-checkmark-outline" label="Puntualidad">
-          <Text className="mt-1 text-2xl font-extrabold text-neutral">{Math.round(puntualidad)}%</Text>
-          <StatusChip className="self-start mt-3" {...punctuality} />
+          <Text className="mt-1 text-2xl font-extrabold text-neutral">
+            {semana.puntualidad === null ? '—' : `${Math.round(semana.puntualidad)}%`}
+          </Text>
+          {punctuality ? (
+            <StatusChip className="self-start mt-3" {...punctuality} />
+          ) : (
+            <Text className="mt-3 text-[11px] text-neutral-muted">Sin turno</Text>
+          )}
         </Metric>
 
         <Metric icon="checkmark-circle-outline" label="Completadas">
           <Text className="mt-1 text-2xl font-extrabold text-neutral">
-            {tareas.completadas}
-            <Text className="text-base font-medium text-neutral-muted">/{tareas.total}</Text>
+            {tareas?.completadas ?? '—'}
+            <Text className="text-base font-medium text-neutral-muted">/{tareas?.total ?? '—'}</Text>
           </Text>
-          <StatusChip
-            className="self-start mt-3"
-            text={`${done}% listo`}
-            color={ThemeColors.primary}
-            background={ThemeColors.tertiary}
-          />
+          <View className="flex-row flex-wrap items-center gap-1 mt-3">
+            <StatusChip text={`${done}%`} color={ThemeColors.primary} background={ThemeColors.tertiary} />
+            <SampleBadge />
+          </View>
         </Metric>
       </View>
     </View>

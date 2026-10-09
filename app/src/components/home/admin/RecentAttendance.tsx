@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { StatusChip, UserAvatar } from '@/components/ui';
-import { ThemeStatus } from '@/constants/theme';
+import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import type { AdminHome } from '@/schemas/home.schema';
 import { formatClock12, getInitials } from '@/utils/format';
 
@@ -10,15 +10,16 @@ import { SectionHeader } from '../shared';
 
 interface RecentAttendanceProps {
   records: AdminHome['asistenciasRecientes'];
-  onSeeAll: () => void;
+  /** Solo el ADMIN tiene reporte. */
+  onSeeAll?: () => void;
 }
 
-/** Últimas entradas registradas (personas reales del equipo; los horarios son de ejemplo). */
+/** Últimas primeras entradas de hoy, con su puntualidad. */
 export const RecentAttendance: React.FC<RecentAttendanceProps> = ({ records, onSeeAll }) => (
   <View className="gap-4">
     <SectionHeader
       title="Asistencias Recientes"
-      action={records.length > 0 ? { label: `Ver todos (${records.length})`, onPress: onSeeAll } : undefined}
+      action={onSeeAll ? { label: 'Ver reporte', onPress: onSeeAll } : undefined}
     />
 
     {records.length === 0 ? (
@@ -33,7 +34,7 @@ export const RecentAttendance: React.FC<RecentAttendanceProps> = ({ records, onS
             key={record.id}
             className={`flex-row items-center py-4 ${index > 0 ? 'border-t border-borderBg' : ''}`}
           >
-            <UserAvatar size={44} initials={getInitials(record.nombre)} />
+            <UserAvatar size={44} initials={getInitials(record.nombre)} uri={record.avatarUrl ?? undefined} />
             <View className="flex-1 ml-3">
               <Text numberOfLines={1} className="text-sm font-extrabold text-neutral">
                 {record.nombre}
@@ -51,13 +52,15 @@ export const RecentAttendance: React.FC<RecentAttendanceProps> = ({ records, onS
                   color={ThemeStatus.success}
                   background={ThemeStatus.successBg}
                 />
-              ) : (
+              ) : record.estado === 'TARDE' ? (
                 <StatusChip
                   icon="time-outline"
-                  text={`+${record.minutosTarde} min`}
+                  text={`+${record.minutosTarde ?? 0} min`}
                   color={ThemeStatus.warningText}
                   background={ThemeStatus.warningBg}
                 />
+              ) : (
+                <StatusChip text="Sin turno" color={ThemeColors.mutedText} background={ThemeColors.tertiary} />
               )}
             </View>
           </View>

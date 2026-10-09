@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 
-import { StatusChip } from '@/components/ui';
+import { SampleBadge, StatusChip } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import type { HomeTask, TaskPriority } from '@/schemas/home.schema';
 import { formatClock12 } from '@/utils/format';
@@ -84,6 +84,10 @@ export const TodayTasks: React.FC<{ tasks: HomeTask[] }> = ({ tasks }) => {
         title="Tareas de hoy"
         badge={pending === 0 ? 'Todo al día' : `${pending} ${pending === 1 ? 'pendiente' : 'pendientes'}`}
       />
+      {/* Las tareas llegan con la Fase 3: hasta entonces son de ejemplo. */}
+      <View className="flex-row -mt-2">
+        <SampleBadge />
+      </View>
       {ordered.length === 0 ? (
         <Text className="text-sm text-neutral-muted">No tienes tareas asignadas para hoy.</Text>
       ) : (

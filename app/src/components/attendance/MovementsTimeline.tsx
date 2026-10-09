@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 
+import { SectionHeader } from '@/components/home';
 import { ThemeColors } from '@/constants/theme';
 import type { AttendanceToday } from '@/schemas/attendance.schema';
 import { buildTimeline, type TimelineKind } from '@/utils/attendance';
@@ -16,14 +17,15 @@ const ICON: Record<TimelineKind, keyof typeof Ionicons.glyphMap> = {
 };
 
 /** Línea de tiempo de los movimientos de hoy; la salida prevista aparece atenuada. */
-export const MovementsTimeline: React.FC<{ today: AttendanceToday }> = ({ today }) => {
+export const MovementsTimeline: React.FC<{ today: AttendanceToday; onSeeHistory: () => void }> = ({
+  today,
+  onSeeHistory,
+}) => {
   const events = buildTimeline(today);
 
   return (
     <View style={{ borderCurve: 'continuous' }} className="w-full bg-cardBg rounded-3xl p-6 shadow-lg shadow-primary/10">
-      <Text accessibilityRole="header" className="text-xl font-extrabold text-neutral">
-        Movimientos de hoy
-      </Text>
+      <SectionHeader title="Movimientos de hoy" action={{ label: 'Historial', onPress: onSeeHistory }} />
 
       {events.length === 0 ? (
         <Text className="mt-4 text-sm text-neutral-muted">

@@ -6,26 +6,20 @@ import { ProgressBar, StatusChip } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import type { EmployeeHome } from '@/schemas/home.schema';
+import { liveWorkedMs } from '@/utils/attendance';
 import { formatClock12, formatRemaining, splitDuration } from '@/utils/format';
 
 const tabular = { fontVariant: ['tabular-nums' as const] };
 
-interface ActiveTimeCardProps {
-  turno: EmployeeHome['turno'];
-  estado: EmployeeHome['estado'];
-  entrada: EmployeeHome['entrada'];
-}
-
-/** Tiempo activo de hoy: cronómetro desde la hora de entrada, progreso y tiempo restante del turno. */
-export const ActiveTimeCard: React.FC<ActiveTimeCardProps> = ({ turno, estado, entrada }) => {
+/** Tiempo activo de hoy (tramos reales de la jornada), puntualidad de la entrada y progreso del turno. */
+export const ActiveTimeCard: React.FC<{ home: EmployeeHome }> = ({ home }) => {
   const now = useNow();
-  const inShift = estado === 'DENTRO' && !!entrada;
-
-  const start = new Date(turno.inicio).getTime();
-  const end = new Date(turno.fin).getTime();
-  const elapsed = inShift ? now - new Date(entrada.registradaEn).getTime() : 0;
-  const progress = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
-  const [hours, minutes, seconds] = splitDuration(elapsed);
+  const { turno, estado, entrada } = home;
+  const inShift = estado === 'DENTRO';
+  const worked = liveWorkedMs(home.minutosTrabajados, estado, home.calculadoEn, now);
+  const [hours, minutes, seconds] = splitDuration(worked);
+  const progress = turno ? Math.min(100, (worked / (turno.objetivoMin * 60_000)) * 100) : 0;
+  const remaining = turno ? new Date(turno.fin).getTime() - now : 0;
 
   return (
     <View
@@ -39,10 +33,17 @@ export const ActiveTimeCard: React.FC<ActiveTimeCardProps> = ({ turno, estado, e
           color={ThemeStatus.success}
           background={ThemeStatus.successBg}
         />
+      ) : entrada ? (
+        <StatusChip
+          icon="log-out-outline"
+          text="SALIDA REGISTRADA"
+          color={ThemeStatus.info}
+          background={ThemeStatus.infoBg}
+        />
       ) : (
         <StatusChip
           icon="time-outline"
-          text="FUERA DE TURNO"
+          text="SIN ENTRADA"
           color={ThemeColors.mutedText}
           background={ThemeColors.tertiary}
         />
@@ -53,7 +54,7 @@ export const ActiveTimeCard: React.FC<ActiveTimeCardProps> = ({ turno, estado, e
       <View
         accessible
         accessibilityRole="timer"
-        accessibilityLabel={`Tiempo activo hoy: ${hours} horas, ${minutes} minutos y ${seconds} segundos`}
+        accessibilityLabel={`Tiempo activo hoy: ${Number(hours)} horas, ${Number(minutes)} minutos y ${Number(seconds)} segundos`}
         className="flex-row items-center mt-3"
       >
         <Text style={tabular} className="text-5xl font-extrabold text-neutral">
@@ -69,25 +70,35 @@ export const ActiveTimeCard: React.FC<ActiveTimeCardProps> = ({ turno, estado, e
         </Text>
       </View>
 
-      {inShift ? (
+      {entrada ? (
         <View className="flex-row items-center mt-4">
           <Ionicons name="log-in-outline" size={18} color={ThemeColors.primary} />
           <Text className="ml-2 text-sm text-neutral-muted">
-            Hora de entrada: <Text className="font-bold text-neutral">{formatClock12(entrada.registradaEn)}</Text>{' '}
-            {entrada.puntual ? '(A tiempo)' : `(+${entrada.minutosTarde} min)`}
+            Entrada: <Text className="font-bold text-neutral">{formatClock12(entrada.registradaEn)}</Text>
+            {entrada.puntual === null
+              ? ''
+              : entrada.puntual
+                ? ' (a tiempo)'
+                : ` (+${entrada.minutosTarde} min)`}
           </Text>
         </View>
       ) : (
-        <Text className="mt-4 text-sm text-neutral-muted">Aún no registras tu entrada de hoy.</Text>
+        <Text className="mt-4 text-sm text-neutral-muted text-center">
+          Aún no registras tu entrada de hoy. Escanea el QR en la pestaña Asistencia.
+        </Text>
       )}
 
-      <View className="w-full mt-6">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-bold text-neutral">Progreso turno ({Math.round(progress)}%)</Text>
-          <Text className="text-sm font-bold text-primary">Quedan {formatRemaining(end - now)}</Text>
+      {turno ? (
+        <View className="w-full mt-6">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-sm font-bold text-neutral">Progreso del turno ({Math.round(progress)}%)</Text>
+            <Text className="text-sm font-bold text-primary">
+              {remaining > 0 ? `Quedan ${formatRemaining(remaining)}` : 'Turno terminado'}
+            </Text>
+          </View>
+          <ProgressBar className="mt-3" value={progress} color={ThemeColors.primary} />
         </View>
-        <ProgressBar className="mt-3" value={progress} color={ThemeColors.primary} />
-      </View>
+      ) : null}
     </View>
   );
 };

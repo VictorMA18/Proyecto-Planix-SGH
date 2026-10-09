@@ -15,12 +15,12 @@ interface OnShiftColleaguesProps {
   isError: boolean;
 }
 
-/** Compañeros de la organización en turno (personas reales; la presencia es de ejemplo). */
+/** Compañeros de la organización (personas reales del equipo). */
 export const OnShiftColleagues: React.FC<OnShiftColleaguesProps> = ({ colleagues, isPending, isError }) => (
   <View className="gap-4">
     <SectionHeader
-      title="En turno contigo"
-      trailing={colleagues && colleagues.length > 0 ? `${colleagues.length} presentes` : undefined}
+      title="Tu equipo"
+      trailing={colleagues && colleagues.length > 0 ? `${colleagues.length} compañeros` : undefined}
     />
 
     {isPending ? (
@@ -46,7 +46,6 @@ export const OnShiftColleagues: React.FC<OnShiftColleaguesProps> = ({ colleagues
               size={44}
               initials={getInitials(colleague.nombre)}
               uri={colleague.avatarUrl ?? undefined}
-              showStatusDot
             />
             <View className="ml-3">
               <Text numberOfLines={1} className="max-w-[140px] text-sm font-extrabold text-neutral">

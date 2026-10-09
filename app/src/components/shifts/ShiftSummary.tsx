@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { ThemeColors } from '@/constants/theme';
 import type { ShiftsConfig } from '@/schemas/attendance.schema';
@@ -36,11 +36,23 @@ const Stat: React.FC<StatProps> = ({ icon, label, value, unit, caption }) => (
   </View>
 );
 
-/** Plantillas activas, personal cubierto y tolerancia de entrada. */
-export const ShiftSummary: React.FC<{ resumen: ShiftsConfig['resumen'] }> = ({ resumen }) => (
+interface ShiftSummaryProps {
+  resumen: ShiftsConfig['resumen'];
+  onEditTolerance: () => void;
+}
+
+/** Plantillas activas, personal cubierto y tolerancia de entrada (tocarla permite cambiarla). */
+export const ShiftSummary: React.FC<ShiftSummaryProps> = ({ resumen, onEditTolerance }) => (
   <View className="flex-row gap-3">
     <Stat icon="albums-outline" label="Plantillas" value={String(resumen.activas)} caption="Activas" />
-    <Stat icon="people-outline" label="Personal" value={String(resumen.cubiertos)} caption="Cubiertos" />
-    <Stat icon="timer-outline" label="Tolerancia" value={String(resumen.toleranciaMin)} unit="m" caption="Entrada" />
+    <Stat icon="people-outline" label="Personal" value={String(resumen.cubiertos)} caption="Con turno" />
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Tolerancia de entrada: ${resumen.toleranciaMin} minutos. Toca para cambiarla`}
+      onPress={onEditTolerance}
+      className="flex-1 active:opacity-80"
+    >
+      <Stat icon="create-outline" label="Tolerancia" value={String(resumen.toleranciaMin)} unit="m" caption="Editar" />
+    </Pressable>
   </View>
 );

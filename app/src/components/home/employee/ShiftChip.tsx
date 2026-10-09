@@ -3,11 +3,11 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { ThemeColors } from '@/constants/theme';
-import type { EmployeeHome } from '@/schemas/home.schema';
+import type { ShiftToday } from '@/schemas/attendance.schema';
 import { formatClock24 } from '@/utils/format';
 
-/** `Turno Mañana (08:00 - 17:00)`. */
-export const ShiftChip: React.FC<{ turno: EmployeeHome['turno'] }> = ({ turno }) => (
+/** `Turno Mañana (08:00 - 17:00)` o «Sin turno asignado hoy». */
+export const ShiftChip: React.FC<{ turno: ShiftToday | null }> = ({ turno }) => (
   <View
     accessible
     style={{ borderCurve: 'continuous' }}
@@ -15,7 +15,9 @@ export const ShiftChip: React.FC<{ turno: EmployeeHome['turno'] }> = ({ turno })
   >
     <Ionicons name="time-outline" size={16} color={ThemeColors.primary} />
     <Text className="ml-2 text-sm font-bold text-primary">
-      Turno {turno.nombre} ({formatClock24(turno.inicio)} - {formatClock24(turno.fin)})
+      {turno
+        ? `${turno.nombre} (${formatClock24(turno.inicio)} - ${formatClock24(turno.fin)})`
+        : 'Sin turno asignado hoy'}
     </Text>
   </View>
 );

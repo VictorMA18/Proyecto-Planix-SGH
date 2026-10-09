@@ -26,8 +26,12 @@ export const WeeklyPunctuality: React.FC<{ semana: AdminHome['puntualidadSemanal
         </View>
         <View className="items-end">
           <Text className="text-[10px] font-bold tracking-wider text-neutral-muted">PROMEDIO</Text>
-          <Text className="text-2xl font-extrabold text-primary">{semana.promedio.toFixed(1)}%</Text>
-          {semana.promedio >= GOAL ? (
+          <Text className="text-2xl font-extrabold text-primary">
+            {semana.promedio === null ? '—' : `${semana.promedio.toFixed(1)}%`}
+          </Text>
+          {semana.promedio === null ? (
+            <Text className="mt-1 text-[11px] text-neutral-muted">Sin entradas con turno</Text>
+          ) : semana.promedio >= GOAL ? (
             <StatusChip
               className="mt-1"
               text="Meta cumplida"
@@ -48,7 +52,8 @@ export const WeeklyPunctuality: React.FC<{ semana: AdminHome['puntualidadSemanal
       <View className="flex-row justify-between gap-3 mt-6">
         {semana.dias.map((day, i) => {
           // La barra va de 60 % (vacía) a 100 % (llena) para que las diferencias se noten.
-          const height = day.valor === null ? 0 : Math.max(8, BAR_HEIGHT * ((day.valor - 60) / 40));
+          const height =
+            day.valor === null ? 0 : Math.max(8, BAR_HEIGHT * (Math.max(0, day.valor - 60) / 40));
           const isLast = i === lastWithData;
 
           return (

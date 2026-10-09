@@ -31,7 +31,7 @@ export const PresenceCard: React.FC<{ presencia: AdminHome['presencia'] }> = ({ 
             <Ionicons name="people-outline" size={20} color={ThemeColors.primary} />
           </View>
           <Text className="flex-1 text-[11px] font-bold tracking-wider text-neutral-muted">
-            MIEMBROS ACTIVOS AHORA
+            PRESENCIA DE HOY
           </Text>
         </View>
         <StatusChip
@@ -43,14 +43,12 @@ export const PresenceCard: React.FC<{ presencia: AdminHome['presencia'] }> = ({ 
 
       <Text className="mt-4 text-4xl font-extrabold text-neutral">
         {presentes}
-        <Text className="text-base font-medium text-neutral-muted"> / {esperados} esperados</Text>
+        <Text className="text-base font-medium text-neutral-muted"> / {esperados} con turno hoy</Text>
       </Text>
 
       <View className="flex-row items-center justify-between mt-5">
         <Text className="text-xs font-bold text-neutral">Distribución de asistencia</Text>
-        <Text className="text-xs font-bold text-primary">
-          {presentes} de {esperados} en turno
-        </Text>
+        <Text className="text-xs font-bold text-primary">{presentes} dentro ahora</Text>
       </View>
 
       <View className="flex-row h-2.5 rounded-full overflow-hidden bg-tertiary mt-3">

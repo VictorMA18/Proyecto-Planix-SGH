@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 
-import { ProgressBar, StatusChip } from '@/components/ui';
+import { ProgressBar, SampleBadge, StatusChip } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
-import type { AdminHome } from '@/schemas/home.schema';
+import type { HomeTasks } from '@/schemas/home.schema';
 
-/** Avance de las tareas de toda la organización. */
-export const OrgTasksCard: React.FC<{ tareas: AdminHome['tareasOrganizacion'] }> = ({ tareas }) => {
+/** Avance de las tareas de toda la organización (ejemplo hasta la Fase 3). */
+export const OrgTasksCard: React.FC<{ tareas: HomeTasks['organizacion'] }> = ({ tareas }) => {
   const percent = tareas.total > 0 ? (tareas.completadas / tareas.total) * 100 : 0;
 
   return (
@@ -24,6 +24,7 @@ export const OrgTasksCard: React.FC<{ tareas: AdminHome['tareasOrganizacion'] }>
             TAREAS DE LA ORGANIZACIÓN
           </Text>
         </View>
+        <SampleBadge />
       </View>
 
       <View className="flex-row flex-wrap items-end justify-between gap-2 mt-4">

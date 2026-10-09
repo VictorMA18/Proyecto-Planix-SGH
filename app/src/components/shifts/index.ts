@@ -6,3 +6,4 @@ export * from './ShiftActionsMenu';
 export * from './ShiftForm';
 export * from './WeekdayPicker';
 export * from './ShiftMembersPicker';
+export * from './ToleranceModal';
