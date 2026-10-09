@@ -21,6 +21,7 @@ import {
 } from '../../components/ui';
 import { loginSchema } from '../../schemas/auth.schema';
 import { useGoogleSignIn } from '../../hooks/use-google-sign-in';
+import { useSignInCode } from '../../hooks/use-sign-in-code';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -29,6 +30,7 @@ export default function LoginScreen() {
   const { signIn, fetchStatus } = useSignIn();
   const { setActive } = useClerk();
   const google = useGoogleSignIn();
+  const { sendCode, supportsEmailCode } = useSignInCode();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -115,19 +117,37 @@ export default function LoginScreen() {
         if (signIn.createdSessionId && setActive) {
           await setActive({ session: signIn.createdSessionId });
         }
-      } else if (signIn.status === 'needs_second_factor' || signIn.status === 'needs_first_factor') {
-        try {
-          if (signIn.mfa?.sendEmailCode) {
-            await signIn.mfa.sendEmailCode();
-          }
-        } catch (_codeErr) {}
+      } else if (
+        signIn.status === 'needs_client_trust' ||
+        signIn.status === 'needs_second_factor' ||
+        signIn.status === 'needs_first_factor'
+      ) {
+        // Dispositivo nuevo (client trust), verificación en dos pasos o primer factor: código por correo.
+        if (!supportsEmailCode()) {
+          setErrorMessage(
+            'Tu cuenta usa otro método de verificación en dos pasos (app autenticadora o SMS), que la app todavía no admite.'
+          );
+          return;
+        }
+
+        const sendError = await sendCode(validEmail);
+        if (sendError) {
+          setErrorMessage(sendError);
+          return;
+        }
 
         router.push({
           pathname: '/(auth)/verify',
           params: { flow: 'sign-in', identifier: validEmail },
         });
+      } else if (signIn.status === 'needs_new_password') {
+        setErrorMessage(
+          'Debes establecer una contraseña nueva para tu cuenta. La recuperación de contraseña aún no está disponible en la app.'
+        );
       } else {
-        setErrorMessage('Se requiere acción adicional para iniciar sesión.');
+        // Estado que la app no maneja: se muestra cuál es para poder diagnosticarlo.
+        console.warn(`[login] Estado de inicio de sesión no manejado: ${signIn.status}`);
+        setErrorMessage(`Se requiere una acción adicional para iniciar sesión (estado: ${signIn.status}).`);
       }
     } catch (err: any) {
       setErrorMessage(

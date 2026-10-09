@@ -17,12 +17,14 @@ import {
   AppButton,
 } from '../../components/ui';
 import { verifyCodeSchema } from '../../schemas/auth.schema';
+import { useSignInCode } from '../../hooks/use-sign-in-code';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 export default function VerifyCodeScreen() {
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
   const { setActive } = useClerk();
+  const { sendCode, verifyCode } = useSignInCode();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
@@ -79,10 +81,10 @@ export default function VerifyCodeScreen() {
           setErrorMessage('El código de verificación es incorrecto o faltan requisitos.');
         }
       } else {
-        if (signIn.emailCode?.verifyCode) {
-          await signIn.emailCode.verifyCode({ code: validCode });
-        } else if (signIn.mfa?.verifyEmailCode) {
-          await signIn.mfa.verifyEmailCode({ code: validCode });
+        const verifyError = await verifyCode(validCode);
+        if (verifyError) {
+          setErrorMessage(verifyError);
+          return;
         }
 
         if (signIn.status === 'complete') {
@@ -111,10 +113,10 @@ export default function VerifyCodeScreen() {
       if (flow === 'sign-up') {
         await signUp.verifications.sendEmailCode();
       } else {
-        if (signIn.mfa?.sendEmailCode) {
-          await signIn.mfa.sendEmailCode();
-        } else if (signIn.emailCode?.sendCode) {
-          await signIn.emailCode.sendCode({ emailAddress: identifier });
+        const sendError = await sendCode(identifier);
+        if (sendError) {
+          setErrorMessage(sendError);
+          return;
         }
       }
       setSuccessMessage('Un nuevo código de verificación ha sido enviado a tu correo.');
