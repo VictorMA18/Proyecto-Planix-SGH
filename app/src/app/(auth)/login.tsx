@@ -46,7 +46,9 @@ export default function LoginScreen() {
 
   const isSubmitting = fetchStatus === 'fetching';
 
+  // Precalentar el navegador del SSO solo existe en Android (en la web lanza un error).
   useEffect(() => {
+    if (Platform.OS !== 'android') return;
     void WebBrowser.warmUpAsync();
     return () => {
       void WebBrowser.coolDownAsync();

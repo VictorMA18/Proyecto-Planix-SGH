@@ -19,9 +19,11 @@ export const AppLogoHeader: React.FC<AppLogoHeaderProps> = ({
         style={{ borderCurve: 'continuous' }}
         className="relative w-20 h-20 rounded-[24px] bg-cardBg items-center justify-center mb-4 shadow-md border border-purple-500/15"
       >
+        {/* Tamaño en `style`: en la web el Image no recibe el className y se dibujaría al tamaño
+            original del PNG. */}
         <Image
           source={require('../../../assets/images/Logo_Planix.png')}
-          className="w-14 h-14"
+          style={{ width: 56, height: 56 }}
           resizeMode="contain"
         />
         {showBadge ? (
