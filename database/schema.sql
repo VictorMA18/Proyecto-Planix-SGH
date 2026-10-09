@@ -29,9 +29,33 @@ CREATE TABLE organizaciones (
     zona_horaria        VARCHAR(64) NOT NULL DEFAULT 'America/Lima',
     logo_url            TEXT,
     activa              BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Minutos de gracia tras el inicio del turno para que una entrada cuente como puntual.
+    tolerancia_entrada_min SMALLINT NOT NULL DEFAULT 15,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_tolerancia_entrada CHECK (tolerancia_entrada_min BETWEEN 0 AND 120)
+);
+
+-- =====================================================================
+-- TABLA: plantillas_turno
+-- Horario recurrente de una organización (p. ej. «Turno Mañana»).
+-- `dias` usa 1 = lunes … 7 = domingo. Si `hora_fin <= hora_inicio`, el
+-- turno cruza la medianoche (regla aplicada en el backend). Cada miembro
+-- tiene como máximo UNA plantilla (`miembros_organizacion.plantilla_turno_id`).
+-- =====================================================================
+
+CREATE TABLE plantillas_turno (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organizacion_id     UUID NOT NULL REFERENCES organizaciones(id) ON DELETE CASCADE,
+    nombre              VARCHAR(60) NOT NULL,
+    hora_inicio         TIME NOT NULL,
+    hora_fin            TIME NOT NULL,
+    dias                SMALLINT[] NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX idx_plantillas_turno_org ON plantillas_turno (organizacion_id);
 
 -- =====================================================================
 -- TABLA: usuarios
@@ -70,6 +94,7 @@ CREATE TABLE miembros_organizacion (
     rol                 rol_miembro NOT NULL DEFAULT 'EMPLEADO',
     estado              estado_miembro NOT NULL DEFAULT 'INVITADO',
     fecha_ingreso       TIMESTAMPTZ,
+    plantilla_turno_id  UUID REFERENCES plantillas_turno(id) ON DELETE SET NULL, -- turno asignado (uno como máximo)
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (usuario_id, organizacion_id)
@@ -78,6 +103,7 @@ CREATE TABLE miembros_organizacion (
 CREATE INDEX idx_miembros_organizacion_org ON miembros_organizacion (organizacion_id);
 CREATE INDEX idx_miembros_organizacion_usuario ON miembros_organizacion (usuario_id);
 CREATE INDEX idx_miembros_organizacion_estado ON miembros_organizacion (organizacion_id, estado);
+CREATE INDEX idx_miembros_organizacion_plantilla ON miembros_organizacion (plantilla_turno_id);
 
 -- =====================================================================
 -- TABLA: invitaciones
@@ -122,6 +148,9 @@ CREATE INDEX idx_codigos_invitacion_org ON codigos_invitacion (organizacion_id);
 
 -- =====================================================================
 -- TABLA: codigos_qr (un QR por organización por día)
+-- `token` es el SECRETO del día: nunca se muestra. El QR que ve la gente
+-- es un token dinámico firmado con este secreto (HMAC) que cambia cada
+-- pocos minutos; el backend lo genera y lo valida (ver 06-flujos).
 -- =====================================================================
 
 CREATE TABLE codigos_qr (
@@ -162,9 +191,17 @@ CREATE TABLE jornadas_asistencia (
     hora_inicio         TIMESTAMPTZ NOT NULL,
     hora_fin            TIMESTAMPTZ,
     estado_actual       estado_jornada NOT NULL DEFAULT 'DENTRO',
+    -- Copia del turno vigente al registrar la primera entrada (NULL si el miembro no tenía turno
+    -- ese día). Así el historial y los reportes no cambian si luego se edita la plantilla.
+    turno_nombre        VARCHAR(60),
+    turno_inicio        TIMESTAMPTZ,
+    turno_fin           TIMESTAMPTZ,
+    minutos_tarde       SMALLINT,          -- minutos después del inicio del turno (0 si llegó antes)
+    puntual             BOOLEAN,           -- minutos_tarde <= tolerancia vigente en ese momento
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (usuario_id, fecha),
+    -- Una jornada por usuario, organización y día (un usuario puede marcar en varias organizaciones).
+    UNIQUE (usuario_id, organizacion_id, fecha),
     CONSTRAINT chk_hora_fin_posterior CHECK (hora_fin IS NULL OR hora_fin >= hora_inicio)
 );
 

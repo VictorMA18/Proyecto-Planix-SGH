@@ -73,18 +73,23 @@ enum EstadoInvitacion {
 }
 
 model Organizacion {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre      String   @db.VarChar(150)
-  slug        String   @unique @db.VarChar(160)
-  zonaHoraria String   @default("America/Lima") @map("zona_horaria") @db.VarChar(64)
-  logoUrl     String?  @map("logo_url")
-  activa      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre               String   @db.VarChar(150)
+  slug                 String   @unique @db.VarChar(160)
+  zonaHoraria          String   @default("America/Lima") @map("zona_horaria") @db.VarChar(64)
+  logoUrl              String?  @map("logo_url")
+  activa               Boolean  @default(true)
+  /// Minutos de gracia tras el inicio del turno para que la entrada cuente como puntual.
+  toleranciaEntradaMin Int      @default(15) @map("tolerancia_entrada_min") @db.SmallInt
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   miembros          MiembroOrganizacion[]
   invitaciones      Invitacion[]
   codigosInvitacion CodigoInvitacion[]
+  plantillasTurno   PlantillaTurno[]
+  codigosQr         CodigoQR[]
+  jornadas          JornadaAsistencia[]
 
   @@map("organizaciones")
 }
@@ -105,6 +110,8 @@ model Usuario {
   miembros          MiembroOrganizacion[]
   invitaciones      Invitacion[]          @relation("InvitadoPor")
   codigosInvitacion CodigoInvitacion[]    @relation("CodigoCreadoPor")
+  codigosQr         CodigoQR[]            @relation("QrGeneradoPor")
+  jornadas          JornadaAsistencia[]
 
   @@index([email], map: "idx_usuarios_email")
   @@index([clerkId], map: "idx_usuarios_clerk_id")
@@ -112,21 +119,25 @@ model Usuario {
 }
 
 model MiembroOrganizacion {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  usuarioId      String        @map("usuario_id") @db.Uuid
-  organizacionId String        @map("organizacion_id") @db.Uuid
-  rol            RolMiembro    @default(EMPLEADO)
-  estado         EstadoMiembro @default(INVITADO)
-  fechaIngreso   DateTime?     @map("fecha_ingreso") @db.Timestamptz
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId        String        @map("usuario_id") @db.Uuid
+  organizacionId   String        @map("organizacion_id") @db.Uuid
+  rol              RolMiembro    @default(EMPLEADO)
+  estado           EstadoMiembro @default(INVITADO)
+  fechaIngreso     DateTime?     @map("fecha_ingreso") @db.Timestamptz
+  /// Turno asignado: un miembro tiene como máximo una plantilla.
+  plantillaTurnoId String?       @map("plantilla_turno_id") @db.Uuid
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
-  organizacion Organizacion @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  usuario        Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  organizacion   Organizacion    @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  plantillaTurno PlantillaTurno? @relation(fields: [plantillaTurnoId], references: [id], onDelete: SetNull)
 
   @@unique([usuarioId, organizacionId])
   @@index([organizacionId], map: "idx_miembros_organizacion_org")
   @@index([usuarioId], map: "idx_miembros_organizacion_usuario")
+  @@index([plantillaTurnoId], map: "idx_miembros_organizacion_plantilla")
   @@map("miembros_organizacion")
 }
 
@@ -166,4 +177,87 @@ model CodigoInvitacion {
 
   @@index([organizacionId], map: "idx_codigos_invitacion_org")
   @@map("codigos_invitacion")
+}
+
+/// Horario recurrente de una organización. `dias`: 1 = lunes … 7 = domingo.
+/// Si `horaFin <= horaInicio`, el turno cruza la medianoche.
+model PlantillaTurno {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizacionId String   @map("organizacion_id") @db.Uuid
+  nombre         String   @db.VarChar(60)
+  horaInicio     DateTime @map("hora_inicio") @db.Time(6)
+  horaFin        DateTime @map("hora_fin") @db.Time(6)
+  dias           Int[]    @db.SmallInt
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizacion Organizacion          @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  miembros     MiembroOrganizacion[]
+
+  @@index([organizacionId], map: "idx_plantillas_turno_org")
+  @@map("plantillas_turno")
+}
+
+/// QR del día de una organización. `token` es el secreto con el que se firma el QR dinámico.
+model CodigoQR {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizacionId String   @map("organizacion_id") @db.Uuid
+  fecha          DateTime @db.Date
+  token          String   @unique @db.VarChar(255)
+  generadoPor    String   @map("generado_por") @db.Uuid
+  expiraEn       DateTime @map("expira_en") @db.Timestamptz
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizacion Organizacion        @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  generador    Usuario             @relation("QrGeneradoPor", fields: [generadoPor], references: [id])
+  jornadas     JornadaAsistencia[]
+
+  @@unique([organizacionId, fecha])
+  @@index([organizacionId, fecha], map: "idx_codigos_qr_org_fecha")
+  @@index([token], map: "idx_codigos_qr_token")
+  @@map("codigos_qr")
+}
+
+model JornadaAsistencia {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId      String        @map("usuario_id") @db.Uuid
+  organizacionId String        @map("organizacion_id") @db.Uuid
+  codigoQrId     String        @map("codigo_qr_id") @db.Uuid
+  fecha          DateTime      @db.Date
+  horaInicio     DateTime      @map("hora_inicio") @db.Timestamptz
+  horaFin        DateTime?     @map("hora_fin") @db.Timestamptz
+  estadoActual   EstadoJornada @default(DENTRO) @map("estado_actual")
+  /// Copia del turno al registrar la primera entrada (null si no tenía turno ese día).
+  turnoNombre    String?       @map("turno_nombre") @db.VarChar(60)
+  turnoInicio    DateTime?     @map("turno_inicio") @db.Timestamptz
+  turnoFin       DateTime?     @map("turno_fin") @db.Timestamptz
+  minutosTarde   Int?          @map("minutos_tarde") @db.SmallInt
+  puntual        Boolean?
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuario      Usuario                @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  organizacion Organizacion           @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  codigoQr     CodigoQR               @relation(fields: [codigoQrId], references: [id])
+  movimientos  MovimientoAsistencia[]
+
+  @@unique([usuarioId, organizacionId, fecha])
+  @@index([usuarioId, fecha], map: "idx_jornadas_usuario_fecha")
+  @@index([organizacionId, fecha], map: "idx_jornadas_org_fecha")
+  @@map("jornadas_asistencia")
+}
+
+model MovimientoAsistencia {
+  id        String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  jornadaId String                   @map("jornada_id") @db.Uuid
+  tipo      TipoMovimientoAsistencia
+  hora      DateTime                 @default(now()) @db.Timestamptz
+  createdAt DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  jornada JornadaAsistencia @relation(fields: [jornadaId], references: [id], onDelete: Cascade)
+
+  @@index([jornadaId, hora], map: "idx_movimientos_jornada_hora")
+  @@map("movimientos_asistencia")
 }
