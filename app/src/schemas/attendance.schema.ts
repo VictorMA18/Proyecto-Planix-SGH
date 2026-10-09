@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
-// Esquemas de la pestaña «Asistencia». `movimientos` y `estadoActual` siguen el contrato definido de
-// JornadaAsistencia (api/openapi.yaml); `turno` es proyectado. Las plantillas de turno corresponden a
-// ConfiguracionTurnos (proyectado). Por ahora los datos son de ejemplo.
+// Esquemas de «Asistencia» y «Configuración de turnos». Coinciden con los contratos AsistenciaHoy,
+// JornadaAsistencia, JornadaAsistenciaPage y ConfiguracionTurnos de api/openapi.yaml.
 
 export const attendanceMovementSchema = z.object({
   id: z.string(),
@@ -11,23 +10,49 @@ export const attendanceMovementSchema = z.object({
 });
 export type AttendanceMovement = z.infer<typeof attendanceMovementSchema>;
 
+/** Turno que aplica hoy (o el que se copió al registrar la entrada). */
+export const shiftTodaySchema = z.object({
+  nombre: z.string(),
+  inicio: z.iso.datetime(),
+  fin: z.iso.datetime(),
+  /** Minutos que dura el turno. */
+  objetivoMin: z.number().int().positive(),
+});
+export type ShiftToday = z.infer<typeof shiftTodaySchema>;
+
+export const journeySchema = z.object({
+  id: z.string(),
+  fecha: z.string(),
+  horaInicio: z.iso.datetime(),
+  horaFin: z.iso.datetime().nullable(),
+  estadoActual: z.enum(['DENTRO', 'FUERA']),
+  turno: z.object({ nombre: z.string(), inicio: z.iso.datetime(), fin: z.iso.datetime() }).nullable(),
+  minutosTarde: z.number().int().min(0).nullable(),
+  puntual: z.boolean().nullable(),
+  /** Trabajado hasta la hora del servidor de la respuesta. */
+  minutosTrabajados: z.number().int().min(0),
+  movimientos: z.array(attendanceMovementSchema),
+});
+export type Journey = z.infer<typeof journeySchema>;
+
 export const attendanceTodaySchema = z.object({
-  turno: z.object({
-    nombre: z.string(),
-    inicio: z.iso.datetime(),
-    fin: z.iso.datetime(),
-    /** Minutos que se esperan trabajar en el turno. */
-    objetivoMin: z.number().int().positive(),
-  }),
+  fecha: z.string(),
+  toleranciaMin: z.number().int(),
+  turno: shiftTodaySchema.nullable(),
   /** `null` mientras el usuario no registra su primera entrada del día. */
-  jornada: z
-    .object({
-      estadoActual: z.enum(['DENTRO', 'FUERA']),
-      movimientos: z.array(attendanceMovementSchema),
-    })
-    .nullable(),
+  jornada: journeySchema.nullable(),
+  /** Hora del servidor con la que se calcularon los minutos. */
+  calculadoEn: z.iso.datetime(),
 });
 export type AttendanceToday = z.infer<typeof attendanceTodaySchema>;
+
+export const journeyPageSchema = z.object({
+  data: z.array(journeySchema),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+  total: z.number().int().min(0),
+});
+export type JourneyPage = z.infer<typeof journeyPageSchema>;
 
 /** 1 = lunes … 7 = domingo. */
 export const weekdaySchema = z.number().int().min(1).max(7);
@@ -42,9 +67,7 @@ export const shiftTemplateSchema = z.object({
   asignados: z.number().int().min(0),
   /** Identificadores de todos los miembros asignados a la plantilla. */
   miembroIds: z.array(z.string()),
-  equipo: z.array(
-    z.object({ id: z.string(), nombre: z.string(), avatarUrl: z.string().nullable().optional() }),
-  ),
+  equipo: z.array(z.object({ id: z.string(), nombre: z.string(), avatarUrl: z.string().nullable() })),
 });
 export type ShiftTemplate = z.infer<typeof shiftTemplateSchema>;
 
@@ -74,3 +97,7 @@ export const shiftFormSchema = z
     message: 'La hora de fin debe ser distinta a la de inicio.',
   });
 export type ShiftFormInput = z.infer<typeof shiftFormSchema>;
+
+/** Tolerancias de entrada que se ofrecen en la configuración, en minutos. */
+export const toleranceSchema = z.number().int().min(0).max(120);
+export const TOLERANCE_OPTIONS = [0, 5, 10, 15, 20, 30] as const;

@@ -1,4 +1,5 @@
-import type { AttendanceMovement, AttendanceToday } from '@/schemas/attendance.schema';
+import type { AttendanceToday } from '@/schemas/attendance.schema';
+import type { ReportRange } from '@/schemas/report.schema';
 
 export type TimelineKind = 'ENTRADA' | 'PAUSA' | 'RETORNO' | 'SALIDA' | 'PREVISTA';
 
@@ -21,22 +22,23 @@ export function buildTimeline(today: AttendanceToday): TimelineEvent[] {
   const movements = today.jornada?.movimientos ?? [];
   const events: TimelineEvent[] = movements.map((movement, index) => {
     const next = movements[index + 1];
+    const base = { id: movement.id, hora: movement.hora, prevista: false };
     if (movement.tipo === 'ENTRADA') {
       return index === 0
-        ? { id: movement.id, kind: 'ENTRADA', title: 'Entrada registrada', detail: 'QR verificado', hora: movement.hora, prevista: false }
-        : { id: movement.id, kind: 'RETORNO', title: 'Retorno registrado', detail: 'QR verificado', hora: movement.hora, prevista: false };
+        ? { ...base, kind: 'ENTRADA', title: 'Entrada registrada', detail: 'QR verificado' }
+        : { ...base, kind: 'RETORNO', title: 'Retorno registrado', detail: 'QR verificado' };
     }
     return next
-      ? { id: movement.id, kind: 'PAUSA', title: 'Inicio de pausa', detail: 'Pausa registrada', hora: movement.hora, prevista: false }
-      : { id: movement.id, kind: 'SALIDA', title: 'Salida registrada', detail: 'Cierre de turno', hora: movement.hora, prevista: false };
+      ? { ...base, kind: 'PAUSA', title: 'Inicio de pausa', detail: 'Salida intermedia' }
+      : { ...base, kind: 'SALIDA', title: 'Salida registrada', detail: 'Cierre de jornada' };
   });
 
-  if (today.jornada?.estadoActual === 'DENTRO') {
+  if (today.jornada?.estadoActual === 'DENTRO' && today.turno) {
     events.push({
       id: 'salida-prevista',
       kind: 'PREVISTA',
       title: 'Salida prevista',
-      detail: 'Cierre de turno',
+      detail: `Fin de ${today.turno.nombre}`,
       hora: today.turno.fin,
       prevista: true,
     });
@@ -44,19 +46,53 @@ export function buildTimeline(today: AttendanceToday): TimelineEvent[] {
   return events;
 }
 
-/** Milisegundos trabajados hoy: suma de los tramos ENTRADA → SALIDA (el abierto cuenta hasta `now`). */
-export function workedMs(movements: AttendanceMovement[], now: number): number {
-  let total = 0;
-  let openedAt: number | null = null;
-  for (const movement of movements) {
-    const time = new Date(movement.hora).getTime();
-    if (movement.tipo === 'ENTRADA') openedAt = time;
-    else if (openedAt !== null) {
-      total += time - openedAt;
-      openedAt = null;
-    }
+/**
+ * Milisegundos trabajados ahora: lo que calculó el servidor más el tiempo transcurrido desde
+ * `calculadoEn` si sigue dentro. No depende de que el reloj del móvil coincida con el del servidor
+ * más allá de ese intervalo.
+ */
+export function liveWorkedMs(
+  minutosTrabajados: number,
+  estado: 'DENTRO' | 'FUERA' | undefined,
+  calculadoEn: string,
+  now: number,
+): number {
+  const base = minutosTrabajados * 60_000;
+  return estado === 'DENTRO' ? base + Math.max(0, now - new Date(calculadoEn).getTime()) : base;
+}
+
+/** `342` → `5h 42m`. */
+export function formatMinutes(minutes: number): string {
+  const total = Math.max(0, Math.floor(minutes));
+  return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m`;
+}
+
+const isoDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/** Fechas `desde` y `hasta` (`YYYY-MM-DD`, calendario del dispositivo) de un rango rápido. */
+export function reportRangeDates(range: ReportRange, today = new Date()): { desde: string; hasta: string } {
+  const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const monday = new Date(day);
+  monday.setDate(day.getDate() - ((day.getDay() + 6) % 7));
+
+  if (range === 'ESTE_MES') {
+    return { desde: isoDate(new Date(day.getFullYear(), day.getMonth(), 1)), hasta: isoDate(day) };
   }
-  return openedAt !== null ? total + Math.max(0, now - openedAt) : total;
+  if (range === 'SEMANA_PASADA') {
+    const start = new Date(monday);
+    start.setDate(monday.getDate() - 7);
+    const end = new Date(monday);
+    end.setDate(monday.getDate() - 1);
+    return { desde: isoDate(start), hasta: isoDate(end) };
+  }
+  return { desde: isoDate(monday), hasta: isoDate(day) };
+}
+
+/** `2026-10-09` → `vie 9 oct` (sin desfase de zona horaria). */
+export function formatDayLabel(fecha: string): string {
+  const [y, m, d] = fecha.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 /** Duración en horas entre `HH:mm` de inicio y fin (si el fin es menor, el turno cruza la medianoche). */

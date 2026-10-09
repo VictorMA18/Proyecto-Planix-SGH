@@ -2,37 +2,66 @@ import { useAuth } from '@clerk/expo';
 import { useQuery } from '@tanstack/react-query';
 
 import { useActiveOrganization } from '@/hooks/use-active-membership';
-import { mockAdminHome, mockEmployeeHome } from '@/mocks/home';
-import { adminHomeSchema, employeeHomeSchema } from '@/schemas/home.schema';
+import { mockHomeTasks } from '@/mocks/home-tasks';
+import { adminHomeSchema, employeeHomeSchema, homeTasksSchema } from '@/schemas/home.schema';
 import { teamPageSchema, type TeamMember } from '@/schemas/team.schema';
 
 import { useApiClient } from './api-client';
 
-// Capa de servicio de la pestaña «Inicio». Los datos de asistencia, métricas y tareas son de ejemplo
-// (con la forma de los contratos proyectados en api/openapi.yaml); los compañeros y el número de
-// miembros esperados son reales, porque salen del equipo de la organización.
+// Capa de servicio de la pestaña «Inicio». La jornada, la semana y el panel vienen de la API
+// (Fase 2); las tareas son de ejemplo hasta la Fase 3.
 
 const homeKey = (kind: string, userId: string | null | undefined, organizationId: string | undefined) =>
   ['home', kind, userId, organizationId] as const;
 
-/** InicioEmpleado: jornada de hoy, métricas de la semana y tareas de hoy (EMPLEADO y SUPERVISOR). */
+/** InicioEmpleado: turno, jornada de hoy y semana (todos los roles). */
 export function useEmployeeHome() {
+  const api = useApiClient();
   const { userId } = useAuth();
   const { organization } = useActiveOrganization();
 
   return useQuery({
-    queryKey: homeKey('employee', userId, organization?.id),
-    // Backend (proyectado): GET /organizaciones/{organizacionId}/inicio/mio
-    queryFn: async () => employeeHomeSchema.parse(mockEmployeeHome(userId!)),
+    queryKey: homeKey('mine', userId, organization?.id),
+    // GET /organizaciones/{organizacionId}/inicio/mio
+    queryFn: async () =>
+      employeeHomeSchema.parse(await api<unknown>(`/organizaciones/${organization!.id}/inicio/mio`)),
     enabled: !!userId && !!organization?.id,
   });
 }
 
-/** Miembros activos de la organización (reales) y cuántos se esperan en total. */
-function useTeamMembers() {
+/** PanelAdmin: presencia del equipo, puntualidad semanal y asistencias recientes (ADMIN y SUPERVISOR). */
+export function useTeamPanel(enabled = true) {
   const api = useApiClient();
   const { userId } = useAuth();
   const { organization } = useActiveOrganization();
+
+  return useQuery({
+    queryKey: homeKey('panel', userId, organization?.id),
+    // GET /organizaciones/{organizacionId}/inicio/panel
+    queryFn: async () =>
+      adminHomeSchema.parse(await api<unknown>(`/organizaciones/${organization!.id}/inicio/panel`)),
+    enabled: enabled && !!userId && !!organization?.id,
+  });
+}
+
+/** Tareas de hoy y avance semanal (ejemplo). */
+export function useHomeTasks() {
+  const { userId } = useAuth();
+  const { organization } = useActiveOrganization();
+
+  return useQuery({
+    queryKey: homeKey('tasks', userId, organization?.id),
+    // Backend (proyectado, Fase 3): tareas de Inicio con la forma de TareaInicio
+    queryFn: async () => homeTasksSchema.parse(mockHomeTasks(userId!, organization!.id)),
+    enabled: !!userId && !!organization?.id,
+  });
+}
+
+/** Compañeros: miembros activos reales de la organización (sin el propio usuario). */
+export function useOnShiftColleagues() {
+  const api = useApiClient();
+  const { userId } = useAuth();
+  const { organization, membership } = useActiveOrganization();
 
   return useQuery({
     queryKey: homeKey('team', userId, organization?.id),
@@ -41,54 +70,9 @@ function useTeamMembers() {
       const page = teamPageSchema.parse(
         await api<unknown>(`/organizaciones/${organization!.id}/equipo?filtro=TODOS&page=1&pageSize=12`),
       );
-      const members = page.items.filter((item): item is TeamMember => item.tipo === 'MIEMBRO');
-      return { members, expected: page.conteos.todos - page.conteos.pendientes };
+      return page.items.filter((item): item is TeamMember => item.tipo === 'MIEMBRO');
     },
+    select: (members) => members.filter((member) => member.id !== membership?.id).slice(0, 6),
     enabled: !!userId && !!organization?.id,
   });
-}
-
-/** Compañeros en turno: miembros reales de la organización (la presencia es de ejemplo). */
-export function useOnShiftColleagues() {
-  const { membership } = useActiveOrganization();
-  const team = useTeamMembers();
-
-  return {
-    ...team,
-    data: team.data?.members.filter((member) => member.id !== membership?.id).slice(0, 6),
-  };
-}
-
-/** PanelAdmin: presencia, tareas, puntualidad semanal y asistencias recientes (solo ADMIN). */
-export function useAdminHome() {
-  const { userId } = useAuth();
-  const { organization } = useActiveOrganization();
-  const team = useTeamMembers();
-
-  const panel = useQuery({
-    queryKey: [...homeKey('admin', userId, organization?.id), team.data?.expected, team.data?.members.length],
-    // Backend (proyectado): GET /organizaciones/{organizacionId}/inicio/panel
-    queryFn: async () =>
-      adminHomeSchema.parse(
-        mockAdminHome(
-          organization!.id,
-          Math.max(1, team.data!.expected),
-          team.data!.members.map((m) => ({ id: m.id, nombre: m.nombre })),
-        ),
-      ),
-    enabled: !!userId && !!organization?.id && !!team.data,
-  });
-
-  // Un error al cargar el equipo (de donde salen los números reales) también es un error del panel.
-  return {
-    data: panel.data,
-    isPending: !team.isError && panel.isPending,
-    isError: team.isError || panel.isError,
-    errorMessage: (team.error ?? panel.error)?.message,
-    isRefetching: panel.isRefetching || team.isRefetching,
-    refetch: () => {
-      void team.refetch();
-      void panel.refetch();
-    },
-  };
 }
