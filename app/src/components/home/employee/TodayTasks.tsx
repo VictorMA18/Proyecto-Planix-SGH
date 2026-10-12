@@ -4,14 +4,15 @@ import { Text, View } from 'react-native';
 
 import { SampleBadge, StatusChip } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
-import type { HomeTask, TaskPriority } from '@/schemas/home.schema';
+import type { HomeTask } from '@/schemas/home.schema';
+import type { TaskPriority } from '@/schemas/task.schema';
 import { formatClock12 } from '@/utils/format';
 
 import { SectionHeader } from '../shared';
 
 const PRIORITY: Record<TaskPriority, { text: string; color: string; background: string }> = {
   ALTA: { text: 'Alta', color: ThemeStatus.errorText, background: ThemeStatus.errorBg },
-  MEDIA: { text: 'Media', color: ThemeStatus.warningText, background: ThemeStatus.warningBg },
+  MEDIA: { text: 'Normal', color: ThemeStatus.warningText, background: ThemeStatus.warningBg },
   BAJA: { text: 'Baja', color: ThemeStatus.success, background: ThemeStatus.successBg },
 };
 
