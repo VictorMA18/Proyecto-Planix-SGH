@@ -9,9 +9,11 @@ interface ScreenHeaderProps {
   title?: string;
   onBack?: () => void;
   right?: React.ReactNode;
+  /** `close` muestra «✕ Cancelar» en lugar de la flecha (formularios). */
+  variant?: 'back' | 'close';
 }
 
-export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, right }) => {
+export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, right, variant = 'back' }) => {
   const insets = useSafeAreaInsets();
 
   return (
@@ -19,8 +21,19 @@ export const ScreenHeader: React.FC<ScreenHeaderProps> = ({ title, onBack, right
       style={{ paddingTop: Math.max(insets.top + 8, 16) }}
       className="w-full max-w-[480px] self-center flex-row items-center justify-between px-5 pb-3"
     >
-      <View className="w-11 items-start">
-        {onBack ? (
+      <View className={variant === 'close' ? 'min-w-11 items-start' : 'w-11 items-start'}>
+        {onBack && variant === 'close' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar"
+            onPress={onBack}
+            hitSlop={4}
+            className="min-h-11 flex-row items-center pr-2 active:opacity-70"
+          >
+            <Ionicons name="close" size={22} color={ThemeColors.neutral} />
+            <Text className="ml-1 text-sm font-semibold text-neutral">Cancelar</Text>
+          </Pressable>
+        ) : onBack ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Volver"

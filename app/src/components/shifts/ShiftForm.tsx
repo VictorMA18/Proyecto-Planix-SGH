@@ -5,18 +5,12 @@ import { AppButton, AppInput } from '@/components/ui';
 import { shiftFormSchema, type ShiftFormInput } from '@/schemas/attendance.schema';
 import { useAssignableMembers } from '@/services/attendance';
 import { formatHours, shiftHours } from '@/utils/attendance';
+import { maskTime } from '@/utils/format';
 
 import { ShiftMembersPicker } from './ShiftMembersPicker';
 import { WeekdayPicker } from './WeekdayPicker';
 
 type FieldErrors = Partial<Record<keyof ShiftFormInput, string>>;
-
-/** Escribe `0730` o `07:30`: inserta los dos puntos al llegar a la tercera cifra. */
-function maskTime(text: string, previous: string): string {
-  const digits = text.replace(/\D/g, '').slice(0, 4);
-  if (digits.length > 2) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-  return digits.length === 2 && text.length > previous.length ? `${digits}:` : digits;
-}
 
 interface ShiftFormProps {
   initial?: ShiftFormInput;

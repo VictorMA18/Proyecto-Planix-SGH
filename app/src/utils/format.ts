@@ -106,3 +106,10 @@ export function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   return `${pad(Math.floor(total / 60))}:${pad(total % 60)}`;
 }
+
+/** Escribe `0730` o `07:30`: inserta los dos puntos al llegar a la tercera cifra. */
+export function maskTime(text: string, previous: string): string {
+  const digits = text.replace(/\D/g, '').slice(0, 4);
+  if (digits.length > 2) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  return digits.length === 2 && text.length > previous.length ? `${digits}:` : digits;
+}
