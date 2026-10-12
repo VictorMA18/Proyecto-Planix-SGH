@@ -13,7 +13,9 @@ CREATE TYPE rol_miembro AS ENUM ('SUPER_ADMIN', 'ADMIN', 'SUPERVISOR', 'EMPLEADO
 CREATE TYPE estado_miembro AS ENUM ('ACTIVO', 'INVITADO', 'INACTIVO');
 CREATE TYPE estado_jornada AS ENUM ('DENTRO', 'FUERA');
 CREATE TYPE tipo_movimiento_asistencia AS ENUM ('ENTRADA', 'SALIDA');
-CREATE TYPE estado_asignacion_tarea AS ENUM ('PENDIENTE', 'VISTA', 'COMPLETADA');
+CREATE TYPE estado_tarea AS ENUM ('PENDIENTE', 'EN_PROGRESO', 'REVISION', 'COMPLETADA');
+CREATE TYPE prioridad_tarea AS ENUM ('ALTA', 'MEDIA', 'BAJA');
+CREATE TYPE tipo_actividad_tarea AS ENUM ('CREADA', 'EDITADA', 'ESTADO', 'ASIGNADOS', 'SUBTAREA', 'COMENTARIO', 'ADJUNTO', 'DUPLICADA');
 CREATE TYPE tipo_notificacion AS ENUM ('TAREA_ASIGNADA', 'QR_DISPONIBLE', 'RECORDATORIO_SALIDA', 'SISTEMA');
 CREATE TYPE plataforma_dispositivo AS ENUM ('ANDROID', 'IOS', 'WEB');
 CREATE TYPE estado_invitacion AS ENUM ('PENDIENTE', 'ACEPTADA', 'EXPIRADA', 'CANCELADA');
@@ -240,6 +242,7 @@ CREATE INDEX idx_movimientos_jornada_hora ON movimientos_asistencia (jornada_id,
 --     "tipo": "IMAGEN" | "ARCHIVO",
 --     "url": "secure_url devuelta por Cloudinary",
 --     "cloudinaryPublicId": "usado por el backend para eliminar el asset",
+--     "mimeType": "application/pdf" | "image/jpeg" | "image/png" | "image/webp" | "image/gif",
 --     "nombreArchivo": "...",
 --     "tamanoBytes": number,
 --     "orden": number,
@@ -260,6 +263,13 @@ CREATE TABLE tareas (
     fecha_fin           TIMESTAMPTZ,
     creado_por          UUID NOT NULL REFERENCES usuarios(id),
     adjuntos            JSONB NOT NULL DEFAULT '[]'::jsonb,
+    -- Flujo de la tarea (Por hacer → En progreso → Revisión → Completada): es de la tarea, no de
+    -- cada persona asignada. Cualquier miembro de la organización puede moverlo.
+    estado              estado_tarea NOT NULL DEFAULT 'PENDIENTE',
+    prioridad           prioridad_tarea NOT NULL DEFAULT 'MEDIA',
+    ubicacion           VARCHAR(120),
+    etiquetas           TEXT[] NOT NULL DEFAULT '{}',   -- hasta 5, validadas en el backend
+    completada_en       TIMESTAMPTZ,                    -- cuándo pasó a COMPLETADA (NULL si no lo está)
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT chk_fecha_fin_posterior CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio)
@@ -268,22 +278,72 @@ CREATE TABLE tareas (
 CREATE INDEX idx_tareas_org_fecha ON tareas (organizacion_id, fecha_inicio);
 
 -- =====================================================================
--- TABLA: asignaciones_tarea (asignación automática por miembro)
+-- TABLA: asignaciones_tarea (personas asignadas a una tarea)
+-- Quien crea o edita la tarea elige a qué miembros activos se asigna (uno
+-- o varios). El estado es de la tarea, no de cada asignación.
 -- =====================================================================
 
 CREATE TABLE asignaciones_tarea (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tarea_id            UUID NOT NULL REFERENCES tareas(id) ON DELETE CASCADE,
     usuario_id          UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-    estado              estado_asignacion_tarea NOT NULL DEFAULT 'PENDIENTE',
-    completado_en       TIMESTAMPTZ,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE (tarea_id, usuario_id)
 );
 
-CREATE INDEX idx_asignaciones_usuario ON asignaciones_tarea (usuario_id, estado);
+CREATE INDEX idx_asignaciones_usuario ON asignaciones_tarea (usuario_id);
 CREATE INDEX idx_asignaciones_tarea ON asignaciones_tarea (tarea_id);
+
+-- =====================================================================
+-- TABLA: subtareas_tarea (lista de pasos de una tarea)
+-- =====================================================================
+
+CREATE TABLE subtareas_tarea (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tarea_id            UUID NOT NULL REFERENCES tareas(id) ON DELETE CASCADE,
+    titulo              VARCHAR(120) NOT NULL,
+    completada          BOOLEAN NOT NULL DEFAULT FALSE,
+    orden               INTEGER NOT NULL DEFAULT 0,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_subtareas_tarea ON subtareas_tarea (tarea_id, orden);
+
+-- =====================================================================
+-- TABLA: comentarios_tarea (conversación de una tarea)
+-- =====================================================================
+
+CREATE TABLE comentarios_tarea (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tarea_id            UUID NOT NULL REFERENCES tareas(id) ON DELETE CASCADE,
+    usuario_id          UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+    texto               VARCHAR(1000) NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_comentarios_tarea ON comentarios_tarea (tarea_id, created_at);
+
+-- =====================================================================
+-- TABLA: actividad_tarea (historial de cambios de una tarea)
+-- El backend registra un evento por cada acción (crear, editar con el
+-- detalle de qué cambió, mover el estado, marcar subtareas, comentar,
+-- adjuntar, duplicar). `descripcion` es el texto legible del evento.
+-- =====================================================================
+
+CREATE TABLE actividad_tarea (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tarea_id            UUID NOT NULL REFERENCES tareas(id) ON DELETE CASCADE,
+    usuario_id          UUID REFERENCES usuarios(id) ON DELETE SET NULL,
+    tipo                tipo_actividad_tarea NOT NULL,
+    descripcion         VARCHAR(300) NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_actividad_tarea ON actividad_tarea (tarea_id, created_at);
 
 -- =====================================================================
 -- TABLA: notificaciones

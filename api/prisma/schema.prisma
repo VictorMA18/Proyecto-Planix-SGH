@@ -38,12 +38,34 @@ enum TipoMovimientoAsistencia {
   @@map("tipo_movimiento_asistencia")
 }
 
-enum EstadoAsignacionTarea {
+enum EstadoTarea {
   PENDIENTE
-  VISTA
+  EN_PROGRESO
+  REVISION
   COMPLETADA
 
-  @@map("estado_asignacion_tarea")
+  @@map("estado_tarea")
+}
+
+enum PrioridadTarea {
+  ALTA
+  MEDIA
+  BAJA
+
+  @@map("prioridad_tarea")
+}
+
+enum TipoActividadTarea {
+  CREADA
+  EDITADA
+  ESTADO
+  ASIGNADOS
+  SUBTAREA
+  COMENTARIO
+  ADJUNTO
+  DUPLICADA
+
+  @@map("tipo_actividad_tarea")
 }
 
 enum TipoNotificacion {
@@ -90,6 +112,7 @@ model Organizacion {
   plantillasTurno   PlantillaTurno[]
   codigosQr         CodigoQR[]
   jornadas          JornadaAsistencia[]
+  tareas            Tarea[]
 
   @@map("organizaciones")
 }
@@ -112,6 +135,10 @@ model Usuario {
   codigosInvitacion CodigoInvitacion[]    @relation("CodigoCreadoPor")
   codigosQr         CodigoQR[]            @relation("QrGeneradoPor")
   jornadas          JornadaAsistencia[]
+  tareasCreadas     Tarea[]               @relation("TareaCreadaPor")
+  asignaciones      AsignacionTarea[]
+  comentariosTarea  ComentarioTarea[]
+  actividadTarea    ActividadTarea[]
 
   @@index([email], map: "idx_usuarios_email")
   @@index([clerkId], map: "idx_usuarios_clerk_id")
@@ -260,4 +287,98 @@ model MovimientoAsistencia {
 
   @@index([jornadaId, hora], map: "idx_movimientos_jornada_hora")
   @@map("movimientos_asistencia")
+}
+
+/// Tarea de una organización. `adjuntos` es JSONB (ver documentacion/03); el estado es de la tarea.
+model Tarea {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizacionId String         @map("organizacion_id") @db.Uuid
+  titulo         String         @db.VarChar(200)
+  descripcion    String?
+  enlace         String?
+  fechaInicio    DateTime       @map("fecha_inicio") @db.Timestamptz
+  fechaFin       DateTime?      @map("fecha_fin") @db.Timestamptz
+  creadoPor      String         @map("creado_por") @db.Uuid
+  adjuntos       Json           @default("[]")
+  estado         EstadoTarea    @default(PENDIENTE)
+  prioridad      PrioridadTarea @default(MEDIA)
+  ubicacion      String?        @db.VarChar(120)
+  etiquetas      String[]       @default([])
+  completadaEn   DateTime?      @map("completada_en") @db.Timestamptz
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizacion Organizacion      @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  creador      Usuario           @relation("TareaCreadaPor", fields: [creadoPor], references: [id])
+  asignaciones AsignacionTarea[]
+  subtareas    SubtareaTarea[]
+  comentarios  ComentarioTarea[]
+  actividad    ActividadTarea[]
+
+  @@index([organizacionId, fechaInicio], map: "idx_tareas_org_fecha")
+  @@map("tareas")
+}
+
+/// Persona asignada a una tarea.
+model AsignacionTarea {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tareaId   String   @map("tarea_id") @db.Uuid
+  usuarioId String   @map("usuario_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tarea   Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([tareaId, usuarioId])
+  @@index([usuarioId], map: "idx_asignaciones_usuario")
+  @@index([tareaId], map: "idx_asignaciones_tarea")
+  @@map("asignaciones_tarea")
+}
+
+model SubtareaTarea {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tareaId    String   @map("tarea_id") @db.Uuid
+  titulo     String   @db.VarChar(120)
+  completada Boolean  @default(false)
+  orden      Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tarea Tarea @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+
+  @@index([tareaId, orden], map: "idx_subtareas_tarea")
+  @@map("subtareas_tarea")
+}
+
+model ComentarioTarea {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tareaId   String   @map("tarea_id") @db.Uuid
+  usuarioId String   @map("usuario_id") @db.Uuid
+  texto     String   @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tarea   Tarea   @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([tareaId, createdAt], map: "idx_comentarios_tarea")
+  @@map("comentarios_tarea")
+}
+
+/// Evento del historial de una tarea (lo registra el backend en cada acción).
+model ActividadTarea {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tareaId     String             @map("tarea_id") @db.Uuid
+  usuarioId   String?            @map("usuario_id") @db.Uuid
+  tipo        TipoActividadTarea
+  descripcion String             @db.VarChar(300)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  tarea   Tarea    @relation(fields: [tareaId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([tareaId, createdAt], map: "idx_actividad_tarea")
+  @@map("actividad_tarea")
 }
