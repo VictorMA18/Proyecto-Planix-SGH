@@ -7,6 +7,7 @@ import { Test } from '@nestjs/testing';
 import type { RolMiembro } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../../../src/app.module';
+import { CloudinaryService } from '../../../src/cloudinary/cloudinary.service';
 import { configureApp } from '../../../src/app.setup';
 import { ClerkAuthGuard } from '../../../src/common/guards/clerk-auth.guard';
 import { RelojService } from '../../../src/common/reloj/reloj.service';
@@ -29,15 +30,38 @@ export class RelojDePrueba {
   }
 }
 
+/** Doble de Cloudinary: guarda lo subido y lo borrado en memoria, sin red ni credenciales. */
+export class CloudinaryDePrueba {
+  subidos: { carpeta: string; bytes: number }[] = [];
+  eliminados: string[] = [];
+  private contenidos = new Map<string, Buffer>();
+  subir(buffer: Buffer, carpeta: string) {
+    this.subidos.push({ carpeta, bytes: buffer.length });
+    const n = this.subidos.length;
+    const url = `https://res.cloudinary.test/${n}`;
+    this.contenidos.set(url, buffer);
+    return Promise.resolve({ url, publicId: `prueba/${n}` });
+  }
+  descargar(url: string) {
+    return Promise.resolve(this.contenidos.get(url) ?? Buffer.alloc(0));
+  }
+  eliminar(publicId: string) {
+    this.eliminados.push(publicId);
+    return Promise.resolve();
+  }
+}
+
 export interface AppDePrueba {
   app: INestApplication;
   http: ReturnType<typeof request>;
   prisma: PrismaService;
   reloj: RelojDePrueba;
+  cloudinary: CloudinaryDePrueba;
 }
 
 export async function crearAppDePrueba(): Promise<AppDePrueba> {
   const reloj = new RelojDePrueba();
+  const cloudinary = new CloudinaryDePrueba();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideGuard(ClerkAuthGuard)
     .useValue({
@@ -51,6 +75,8 @@ export async function crearAppDePrueba(): Promise<AppDePrueba> {
     })
     .overrideProvider(RelojService)
     .useValue(reloj)
+    .overrideProvider(CloudinaryService)
+    .useValue(cloudinary)
     .compile();
 
   const app = moduleRef.createNestApplication();
@@ -61,6 +87,7 @@ export async function crearAppDePrueba(): Promise<AppDePrueba> {
     http: request(app.getHttpServer()),
     prisma: app.get(PrismaService),
     reloj,
+    cloudinary,
   };
 }
 
