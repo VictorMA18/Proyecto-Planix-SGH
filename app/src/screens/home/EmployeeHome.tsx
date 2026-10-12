@@ -16,7 +16,9 @@ import { MembershipsState } from '@/components/organizations';
 import { COMING_SOON, type ComingSoonFeature } from '@/constants/home';
 import { ThemeColors } from '@/constants/theme';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
-import { useEmployeeHome, useHomeTasks, useOnShiftColleagues, useTeamPanel } from '@/services/home';
+import { useNow } from '@/hooks/use-now';
+import { useEmployeeHome, useOnShiftColleagues, useTeamPanel } from '@/services/home';
+import { useSetTaskStatus } from '@/services/tasks';
 
 import { TeamPresenceSection } from './TeamPresenceSection';
 
@@ -30,7 +32,8 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
   const router = useRouter();
   const user = useUserDisplay();
   const home = useEmployeeHome();
-  const tasks = useHomeTasks();
+  const setStatus = useSetTaskStatus();
+  const now = useNow(60_000);
   const colleagues = useOnShiftColleagues();
   const panel = useTeamPanel(isSupervisor);
   const [feature, setFeature] = useState<ComingSoonFeature | null>(null);
@@ -81,7 +84,7 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
 
             <WeeklyMetrics
               semana={home.data.semana}
-              tareas={tasks.data?.semana}
+              tareas={home.data.tareas.semana}
               onSeeHistory={() => router.push('/historial')}
             />
           </>
@@ -89,7 +92,18 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
 
         {isSupervisor ? <TeamPresenceSection panel={panel} /> : null}
 
-        {tasks.data ? <TodayTasks tasks={tasks.data.tareasHoy} /> : null}
+        {home.data ? (
+          <TodayTasks
+            tasks={home.data.tareas.hoy}
+            now={now}
+            busy={setStatus.isPending}
+            onOpen={(task) => router.push(`/tarea/${task.id}`)}
+            onToggleDone={(task) =>
+              setStatus.mutate({ taskId: task.id, estado: task.estado === 'COMPLETADA' ? 'PENDIENTE' : 'COMPLETADA' })
+            }
+            onSeeAll={() => router.push('/tareas')}
+          />
+        ) : null}
         <OnShiftColleagues colleagues={colleagues.data} isPending={colleagues.isPending} isError={colleagues.isError} />
       </ScrollView>
 

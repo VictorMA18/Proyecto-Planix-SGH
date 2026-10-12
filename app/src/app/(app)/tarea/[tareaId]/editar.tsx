@@ -3,21 +3,24 @@ import React, { useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MembershipsState } from '@/components/organizations';
-import { TaskForm } from '@/components/tasks';
+import { SaveWarningModal, TaskForm } from '@/components/tasks';
 import { ScreenHeader } from '@/components/ui';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useGoBack } from '@/hooks/use-go-back';
 import type { TaskFormInput } from '@/schemas/task.schema';
-import { canCreateTasks, useDeleteTask, useSaveTask, useTask } from '@/services/tasks';
+import { canCreateTasks, useDeleteTask, useSaveTask, useTask, type SaveTaskResult } from '@/services/tasks';
 import { taskFormDateParts } from '@/utils/tasks';
 
 export default function EditTaskScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/tareas');
   const { tareaId } = useLocalSearchParams<{ tareaId: string }>();
   const { role } = useActiveOrganization();
   const task = useTask(tareaId);
   const save = useSaveTask();
   const remove = useDeleteTask();
   const [error, setError] = useState('');
+  const [failed, setFailed] = useState<SaveTaskResult['failed'] | null>(null);
 
   // Valores iniciales fijos al abrir: si la tarea se recarga mientras se edita, no se pisa el formulario.
   const initial = useMemo<TaskFormInput | null>(
@@ -42,7 +45,7 @@ export default function EditTaskScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Editar tarea" variant="close" onBack={() => router.back()} />
+      <ScreenHeader title="Editar tarea" variant="close" onBack={() => goBack()} />
 
       {!canCreateTasks(role) ? (
         <MembershipsState
@@ -61,10 +64,17 @@ export default function EditTaskScreen() {
           isSaving={save.isPending}
           isDeleting={remove.isPending}
           error={error}
-          onCancel={() => router.back()}
+          onCancel={() => goBack()}
           onSubmit={(form) => {
             setError('');
-            save.mutate({ id: tareaId, form }, { onSuccess: () => router.back(), onError: (err) => setError(err.message) });
+            save.mutate(
+              { id: tareaId, form, previousAttachments: task.data?.adjuntos ?? [] },
+              {
+                // Si algún adjunto falló, se avisa antes de volver al detalle.
+                onSuccess: (result) => (result.failed.length ? setFailed(result.failed) : goBack()),
+                onError: (err) => setError(err.message),
+              },
+            );
           }}
           onDelete={() =>
             remove.mutate(tareaId!, {
@@ -75,6 +85,14 @@ export default function EditTaskScreen() {
           }
         />
       )}
+
+      <SaveWarningModal
+        failed={failed}
+        onClose={() => {
+          setFailed(null);
+          goBack();
+        }}
+      />
     </SafeAreaView>
   );
 }

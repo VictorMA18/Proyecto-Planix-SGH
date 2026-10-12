@@ -8,3 +8,4 @@ export * from './TaskActionsSheet';
 export * from './TaskInfoCard';
 export * from './TaskSection';
 export * from './TaskStatusStepper';
+export * from './AttachmentViewer';

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import type { Attachment } from '@/schemas/task.schema';
@@ -8,21 +8,24 @@ import { formatBytes } from '@/utils/tasks';
 
 interface AttachmentTileProps {
   attachment: Attachment;
+  /** En el detalle: abre el visor. Sin él (adjunto aún sin subir) la tarjeta no se puede tocar. */
+  onPress?: () => void;
   /** En el formulario: la «×» para quitarlo. */
   onRemove?: () => void;
 }
 
-/** Un adjunto (PDF o imagen): tocarlo lo abre; en el formulario se puede quitar. */
-export const AttachmentTile: React.FC<AttachmentTileProps> = ({ attachment, onRemove }) => {
+/** Un adjunto (PDF o imagen): tocarlo abre el visor; en el formulario se puede quitar. */
+export const AttachmentTile: React.FC<AttachmentTileProps> = ({ attachment, onPress, onRemove }) => {
   const isPdf = attachment.tipo === 'ARCHIVO';
   const kind = isPdf ? 'PDF' : (attachment.mimeType.split('/')[1] ?? 'imagen').toUpperCase();
 
   return (
     <View className="flex-1 min-w-[140px]">
       <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Abrir ${attachment.nombreArchivo}, ${kind}, ${formatBytes(attachment.tamanoBytes)}`}
-        onPress={() => Linking.openURL(attachment.url).catch(() => undefined)}
+        accessibilityRole={onPress ? 'button' : undefined}
+        accessibilityLabel={`${onPress ? 'Ver ' : ''}${attachment.nombreArchivo}, ${kind}, ${formatBytes(attachment.tamanoBytes)}`}
+        disabled={!onPress}
+        onPress={onPress}
         style={{ borderCurve: 'continuous' }}
         className="min-h-16 flex-row items-center bg-inputBg border border-borderBg rounded-2xl p-3 active:opacity-80"
       >

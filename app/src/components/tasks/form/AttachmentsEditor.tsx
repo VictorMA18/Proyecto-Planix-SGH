@@ -40,12 +40,14 @@ export const AttachmentsEditor: React.FC<AttachmentsEditorProps> = ({ value, onC
     }
     if ((file.size ?? 0) > MAX_ATTACHMENT_BYTES) return setError('El archivo supera los 10 MB.');
 
-    // Sin backend todavía: se guarda la referencia local. El backend lo subirá a Cloudinary
-    // (POST /tareas/{tareaId}/adjuntos).
+    // Queda pendiente (id `local-…`): se sube al guardar la tarea (POST /tareas/{tareaId}/adjuntos).
+    // En la web se usa el `File` del selector; en el móvil, su uri (ver `services/tasks.ts`).
+    const id = `local-${Date.now()}-${++sequence}`;
     onChange([
       ...value,
       {
-        id: `adjunto-${Date.now()}-${++sequence}`,
+        id,
+        archivo: file.file,
         tipo: mimeType === 'application/pdf' ? 'ARCHIVO' : 'IMAGEN',
         nombreArchivo: file.name,
         mimeType,

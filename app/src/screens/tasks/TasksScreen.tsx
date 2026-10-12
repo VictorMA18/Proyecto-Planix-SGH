@@ -13,7 +13,6 @@ import {
   TaskStatusTabs,
   TasksMonthHeader,
 } from '@/components/tasks';
-import { SampleBadge } from '@/components/ui';
 import { TASK_PRIORITY_FILTERS } from '@/constants/tasks';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
@@ -122,9 +121,6 @@ export const TasksScreen: React.FC = () => {
             sort={store.sort}
             onToggleSort={store.toggleSort}
           />
-          <View className="flex-row">
-            <SampleBadge />
-          </View>
           <TaskStatusTabs value={store.status} counts={counts} onChange={store.setStatus} />
 
           {tasks.isPending ? (

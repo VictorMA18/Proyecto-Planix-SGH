@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
 
-import { SampleBadge, StatusChip } from '@/components/ui';
+import { StatusChip } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
-import type { EmployeeHome, HomeTasks } from '@/schemas/home.schema';
+import type { EmployeeHome, TaskProgress } from '@/schemas/home.schema';
 
 import { SectionHeader } from '../shared';
 
@@ -31,12 +31,12 @@ const Metric: React.FC<MetricProps> = ({ icon, label, children }) => (
 
 interface WeeklyMetricsProps {
   semana: EmployeeHome['semana'];
-  /** Tareas de ejemplo hasta la Fase 3. */
-  tareas: HomeTasks['semana'] | undefined;
+  /** Mis tareas de la semana. */
+  tareas: TaskProgress;
   onSeeHistory: () => void;
 }
 
-/** Horas y puntualidad reales de la semana, más el avance de tareas (ejemplo). */
+/** Horas, puntualidad y tareas completadas de la semana. */
 export const WeeklyMetrics: React.FC<WeeklyMetricsProps> = ({ semana, tareas, onSeeHistory }) => {
   const hours = semana.minutosTrabajados / 60;
   const change = semana.variacionPct;
@@ -49,7 +49,7 @@ export const WeeklyMetrics: React.FC<WeeklyMetricsProps> = ({ semana, tareas, on
         : semana.puntualidad >= 90
           ? { text: 'Buena', color: ThemeStatus.info, background: ThemeStatus.infoBg }
           : { text: 'A mejorar', color: ThemeStatus.warningText, background: ThemeStatus.warningBg };
-  const done = tareas && tareas.total > 0 ? Math.round((tareas.completadas / tareas.total) * 100) : 0;
+  const done = tareas.total > 0 ? Math.round((tareas.completadas / tareas.total) * 100) : 0;
 
   return (
     <View className="gap-4">
@@ -87,13 +87,15 @@ export const WeeklyMetrics: React.FC<WeeklyMetricsProps> = ({ semana, tareas, on
 
         <Metric icon="checkmark-circle-outline" label="Completadas">
           <Text className="mt-1 text-2xl font-extrabold text-neutral">
-            {tareas?.completadas ?? '—'}
-            <Text className="text-base font-medium text-neutral-muted">/{tareas?.total ?? '—'}</Text>
+            {tareas.completadas}
+            <Text className="text-base font-medium text-neutral-muted">/{tareas.total}</Text>
           </Text>
-          <View className="flex-row flex-wrap items-center gap-1 mt-3">
-            <StatusChip text={`${done}%`} color={ThemeColors.primary} background={ThemeColors.tertiary} />
-            <SampleBadge />
-          </View>
+          <StatusChip
+            className="self-start mt-3"
+            text={tareas.total ? `${done}% listo` : 'Sin tareas'}
+            color={ThemeColors.primary}
+            background={ThemeColors.tertiary}
+          />
         </Metric>
       </View>
     </View>

@@ -8,6 +8,7 @@ import {
   ComingSoonDialog,
   HomeGreeting,
   OrgTasksCard,
+  TodayTasks,
   QuickActions,
   ShiftChip,
 } from '@/components/home';
@@ -15,7 +16,9 @@ import { COMING_SOON, type ComingSoonFeature } from '@/constants/home';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
-import { useEmployeeHome, useHomeTasks, useTeamPanel } from '@/services/home';
+import { useNow } from '@/hooks/use-now';
+import { useEmployeeHome, useTeamPanel } from '@/services/home';
+import { useSetTaskStatus } from '@/services/tasks';
 
 import { TeamPresenceSection } from './TeamPresenceSection';
 
@@ -27,7 +30,8 @@ export const AdminHome: React.FC = () => {
   const panel = useTeamPanel();
   // El administrador también marca asistencia: su jornada es la misma que la de los demás roles.
   const shift = useEmployeeHome();
-  const tasks = useHomeTasks();
+  const setStatus = useSetTaskStatus();
+  const now = useNow(60_000);
   const [feature, setFeature] = useState<ComingSoonFeature | null>(null);
   const organizationName = organization?.nombre ?? 'tu organización';
 
@@ -72,10 +76,19 @@ export const AdminHome: React.FC = () => {
 
         <TeamPresenceSection panel={panel} onOpenReport={() => router.push('/reportes')} />
 
-        {tasks.data ? (
-          <View className="gap-4">
-            <OrgTasksCard tareas={tasks.data.organizacion} />
-          </View>
+        {panel.data ? <OrgTasksCard tareas={panel.data.tareasOrganizacion} /> : null}
+
+        {shift.data ? (
+          <TodayTasks
+            tasks={shift.data.tareas.hoy}
+            now={now}
+            busy={setStatus.isPending}
+            onOpen={(task) => router.push(`/tarea/${task.id}`)}
+            onToggleDone={(task) =>
+              setStatus.mutate({ taskId: task.id, estado: task.estado === 'COMPLETADA' ? 'PENDIENTE' : 'COMPLETADA' })
+            }
+            onSeeAll={() => router.push('/tareas')}
+          />
         ) : null}
       </ScrollView>
 

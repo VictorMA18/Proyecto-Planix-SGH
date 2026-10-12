@@ -5,3 +5,4 @@ export * from './DescriptionEditor';
 export * from './SubtasksEditor';
 export * from './TagsField';
 export * from './TaskForm';
+export * from './SaveWarningModal';

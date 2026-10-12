@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import React, { useCallback, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,6 +9,7 @@ import { MembershipsState } from '@/components/organizations';
 import {
   ActivityPanel,
   AttachmentTile,
+  AttachmentViewer,
   CommentsPanel,
   DetailTabs,
   MarkdownText,
@@ -21,7 +23,9 @@ import {
 import { AppButton, ConfirmModal, ScreenHeader } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useNow } from '@/hooks/use-now';
+import type { Attachment } from '@/schemas/task.schema';
 import {
   canCreateTasks,
   useDeleteTask,
@@ -33,6 +37,7 @@ import {
 
 export default function TaskDetailScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/tareas');
   const insets = useSafeAreaInsets();
   const now = useNow(60_000);
   const { tareaId } = useLocalSearchParams<{ tareaId: string }>();
@@ -45,10 +50,21 @@ export default function TaskDetailScreen() {
   const duplicate = useDuplicateTask();
   const remove = useDeleteTask();
 
+  const queryClient = useQueryClient();
+  // Al volver a esta pantalla (p. ej. desde Editar) se recargan la tarea y su conversación.
+  const refreshAll = useCallback(() => {
+    void task.refetch();
+    void queryClient.invalidateQueries({ queryKey: ['tasks', 'comments'] });
+    void queryClient.invalidateQueries({ queryKey: ['tasks', 'activity'] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryClient]);
+  useFocusEffect(refreshAll);
+
   const [tab, setTab] = useState<DetailTab>('DETALLES');
   const [menu, setMenu] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [failure, setFailure] = useState('');
+  const [viewing, setViewing] = useState<Attachment | null>(null);
 
   const data = task.data;
   // Cualquier miembro (también EMPLEADO) mueve el estado y marca subtareas desde aquí, sin editar.
@@ -69,7 +85,7 @@ export default function TaskDetailScreen() {
     remove.mutate(data.id, {
       onSuccess: () => {
         setConfirmDelete(false);
-        router.back();
+        goBack();
       },
       onError,
     });
@@ -79,7 +95,7 @@ export default function TaskDetailScreen() {
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
       <ScreenHeader
         title={data?.titulo ?? 'Tarea'}
-        onBack={() => router.back()}
+        onBack={() => goBack()}
         right={
           manager && data ? (
             <Pressable
@@ -113,7 +129,7 @@ export default function TaskDetailScreen() {
             refreshControl={
               <RefreshControl
                 refreshing={task.isRefetching}
-                onRefresh={() => task.refetch()}
+                onRefresh={refreshAll}
                 tintColor={ThemeColors.primary}
                 colors={[ThemeColors.primary]}
               />
@@ -170,7 +186,11 @@ export default function TaskDetailScreen() {
                   ) : (
                     <View className="flex-row flex-wrap gap-3">
                       {data.adjuntos.map((attachment) => (
-                        <AttachmentTile key={attachment.id} attachment={attachment} />
+                        <AttachmentTile
+                          key={attachment.id}
+                          attachment={attachment}
+                          onPress={() => setViewing(attachment)}
+                        />
                       ))}
                     </View>
                   )}
@@ -214,6 +234,7 @@ export default function TaskDetailScreen() {
             </View>
           ) : null}
 
+          <AttachmentViewer taskId={data.id} attachment={viewing} onClose={() => setViewing(null)} />
           <TaskActionsSheet
             visible={menu}
             title={data.titulo}
