@@ -1,7 +1,7 @@
 import { IsOptional, IsUUID } from 'class-validator';
 import { REPORTE_MAX_DIAS } from '../../../common/constants/asistencia.constants';
 import { EsFecha } from '../../../common/validators/es-fecha.validator';
-import { RangoDeFechas } from '../validators/rango-fechas.validator';
+import { RangoDeFechas } from '../../../common/validators/rango-fechas.validator';
 
 /** Query de `GET /organizaciones/{id}/reportes/asistencia`. */
 export class ReporteQueryDto {

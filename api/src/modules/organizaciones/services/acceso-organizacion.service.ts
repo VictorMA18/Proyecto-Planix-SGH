@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { MiembroOrganizacion } from '@prisma/client';
+import type { MiembroOrganizacion, RolMiembro } from '@prisma/client';
 import { ROLES_ADMINISTRADORES } from '../../../common/constants/invitaciones.constants';
 import { PrismaService } from '../../../prisma/prisma.service';
 
@@ -41,6 +41,18 @@ export class AccesoOrganizacionService {
     if (!ROLES_ADMINISTRADORES.includes(membresia.rol)) {
       throw new ForbiddenException('Solo un ADMIN puede realizar esta acción');
     }
+    return membresia;
+  }
+
+  /** Además de ser miembro, debe tener uno de `roles` en la organización (403). */
+  async exigirRol(
+    usuarioId: string,
+    organizacionId: string,
+    roles: RolMiembro[],
+    mensaje = 'Tu rol no permite realizar esta acción',
+  ): Promise<MiembroOrganizacion> {
+    const membresia = await this.exigirMiembro(usuarioId, organizacionId);
+    if (!roles.includes(membresia.rol)) throw new ForbiddenException(mensaje);
     return membresia;
   }
 }

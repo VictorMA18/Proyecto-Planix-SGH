@@ -3,7 +3,7 @@ import {
   ValidationArguments,
   ValidationOptions,
 } from 'class-validator';
-import { diasEntre } from '../../../common/utils/zona-horaria.util';
+import { diasEntre } from '../utils/zona-horaria.util';
 
 /**
  * La fecha de esta propiedad no es anterior a la de `campoDesde` y el rango (ambos días incluidos)
