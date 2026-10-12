@@ -1,13 +1,11 @@
 import { z } from 'zod';
 
 import { shiftTodaySchema } from './attendance.schema';
+import { taskPrioritySchema } from './task.schema';
 
 // Esquemas de la pestaña «Inicio». `employeeHomeSchema` y `adminHomeSchema` coinciden con los
 // contratos InicioEmpleado y PanelAdmin de api/openapi.yaml. Las tareas son de la Fase 3: por ahora
 // son datos de ejemplo con la forma de TareaInicio (proyectado).
-
-export const taskPrioritySchema = z.enum(['ALTA', 'MEDIA', 'BAJA']);
-export type TaskPriority = z.infer<typeof taskPrioritySchema>;
 
 export const homeTaskSchema = z.object({
   id: z.string(),
