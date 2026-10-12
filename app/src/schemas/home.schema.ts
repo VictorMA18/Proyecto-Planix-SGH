@@ -1,34 +1,17 @@
 import { z } from 'zod';
 
 import { shiftTodaySchema } from './attendance.schema';
-import { taskPrioritySchema } from './task.schema';
+import { calendarTaskSchema } from './task.schema';
 
 // Esquemas de la pestaña «Inicio». `employeeHomeSchema` y `adminHomeSchema` coinciden con los
-// contratos InicioEmpleado y PanelAdmin de api/openapi.yaml. Las tareas son de la Fase 3: por ahora
-// son datos de ejemplo con la forma de TareaInicio (proyectado).
+// contratos InicioEmpleado y PanelAdmin de api/openapi.yaml.
 
-export const homeTaskSchema = z.object({
-  id: z.string(),
-  titulo: z.string(),
-  descripcion: z.string(),
-  prioridad: taskPrioritySchema,
-  estado: z.enum(['PENDIENTE', 'COMPLETADA']),
-  estimadoMin: z.number().int().optional(),
-  venceEn: z.iso.datetime().optional(),
-  completadaEn: z.iso.datetime().optional(),
-  participantes: z.number().int().optional(),
+/** Tareas de la semana actual (lunes a domingo). */
+export const taskProgressSchema = z.object({
+  completadas: z.number().int().min(0),
+  total: z.number().int().min(0),
 });
-export type HomeTask = z.infer<typeof homeTaskSchema>;
-
-const countOf = z.object({ completadas: z.number().int(), total: z.number().int() });
-
-/** Tareas de Inicio (ejemplo hasta la Fase 3). */
-export const homeTasksSchema = z.object({
-  tareasHoy: z.array(homeTaskSchema),
-  semana: countOf,
-  organizacion: countOf,
-});
-export type HomeTasks = z.infer<typeof homeTasksSchema>;
+export type TaskProgress = z.infer<typeof taskProgressSchema>;
 
 export const employeeHomeSchema = z.object({
   fecha: z.string(),
@@ -50,6 +33,8 @@ export const employeeHomeSchema = z.object({
     variacionPct: z.number().nullable(),
     puntualidad: z.number().min(0).max(100).nullable(),
   }),
+  /** Tareas asignadas al usuario: las que empiezan hoy y su avance de la semana. */
+  tareas: z.object({ hoy: z.array(calendarTaskSchema), semana: taskProgressSchema }),
 });
 export type EmployeeHome = z.infer<typeof employeeHomeSchema>;
 
@@ -90,5 +75,6 @@ export const adminHomeSchema = z.object({
       minutosTarde: z.number().int().min(0).nullable(),
     }),
   ),
+  tareasOrganizacion: taskProgressSchema,
 });
 export type AdminHome = z.infer<typeof adminHomeSchema>;

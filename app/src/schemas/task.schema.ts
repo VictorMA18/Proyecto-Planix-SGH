@@ -50,7 +50,15 @@ export const attachmentSchema = z.object({
   mimeType: z.string(),
   tamanoBytes: z.number().int().min(0),
   url: z.string(),
+  /**
+   * Solo en el formulario: adjunto elegido pero aún sin subir (id `local-…`). En la web es el
+   * `File` del selector; en el móvil basta con `url` (la uri local).
+   */
+  archivo: z.custom<Blob>((value) => typeof Blob !== 'undefined' && value instanceof Blob).optional(),
 });
+
+/** Adjunto elegido en el formulario que todavía no se subió. */
+export const isLocalAttachment = (attachment: { id: string }) => attachment.id.startsWith('local-');
 export type Attachment = z.infer<typeof attachmentSchema>;
 
 export const taskDetailSchema = calendarTaskSchema.extend({

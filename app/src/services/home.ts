@@ -2,19 +2,17 @@ import { useAuth } from '@clerk/expo';
 import { useQuery } from '@tanstack/react-query';
 
 import { useActiveOrganization } from '@/hooks/use-active-membership';
-import { mockHomeTasks } from '@/mocks/home-tasks';
-import { adminHomeSchema, employeeHomeSchema, homeTasksSchema } from '@/schemas/home.schema';
+import { adminHomeSchema, employeeHomeSchema } from '@/schemas/home.schema';
 import { teamPageSchema, type TeamMember } from '@/schemas/team.schema';
 
 import { useApiClient } from './api-client';
 
-// Capa de servicio de la pestaña «Inicio». La jornada, la semana y el panel vienen de la API
-// (Fase 2); las tareas son de ejemplo hasta la Fase 3.
+// Capa de servicio de la pestaña «Inicio»: jornada, semana, tareas y panel vienen de la API.
 
 const homeKey = (kind: string, userId: string | null | undefined, organizationId: string | undefined) =>
   ['home', kind, userId, organizationId] as const;
 
-/** InicioEmpleado: turno, jornada de hoy y semana (todos los roles). */
+/** InicioEmpleado: turno, jornada de hoy, semana y mis tareas de hoy (todos los roles). */
 export function useEmployeeHome() {
   const api = useApiClient();
   const { userId } = useAuth();
@@ -41,19 +39,6 @@ export function useTeamPanel(enabled = true) {
     queryFn: async () =>
       adminHomeSchema.parse(await api<unknown>(`/organizaciones/${organization!.id}/inicio/panel`)),
     enabled: enabled && !!userId && !!organization?.id,
-  });
-}
-
-/** Tareas de hoy y avance semanal (ejemplo). */
-export function useHomeTasks() {
-  const { userId } = useAuth();
-  const { organization } = useActiveOrganization();
-
-  return useQuery({
-    queryKey: homeKey('tasks', userId, organization?.id),
-    // Backend (proyectado, Fase 3): tareas de Inicio con la forma de TareaInicio
-    queryFn: async () => homeTasksSchema.parse(mockHomeTasks(userId!, organization!.id)),
-    enabled: !!userId && !!organization?.id,
   });
 }
 
