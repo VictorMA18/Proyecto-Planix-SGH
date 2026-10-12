@@ -9,6 +9,7 @@ import { UserAvatar } from '@/components/ui';
 import { RoleColors, ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
+import { useUnreadNotificationsCount } from '@/services/notifications';
 import { getInitials } from '@/utils/format';
 
 /** Cabecera de las pestañas: organización activa, rol, notificaciones y acceso a «Mi cuenta». */
@@ -17,6 +18,7 @@ export const OrgTabHeader: React.FC = () => {
   const insets = useSafeAreaInsets();
   const user = useUserDisplay();
   const { organization, role } = useActiveOrganization();
+  const unread = useUnreadNotificationsCount();
 
   return (
     <View
@@ -52,13 +54,23 @@ export const OrgTabHeader: React.FC = () => {
 
       <View className="flex-1" />
 
-      <View
-        accessible
-        accessibilityLabel="Notificaciones"
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={unread > 0 ? `Notificaciones, ${unread} sin leer` : 'Notificaciones'}
+        onPress={() => router.push('/notificaciones')}
+        style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
         className="w-11 h-11 items-center justify-center"
       >
         <Ionicons name="notifications-outline" size={22} color={ThemeColors.neutral} />
-      </View>
+        {unread > 0 ? (
+          <View
+            style={{ backgroundColor: ThemeColors.error }}
+            className="absolute top-1.5 right-1 min-w-4 h-4 rounded-full items-center justify-center px-1 border-2 border-screenBg"
+          >
+            <Text className="text-[9px] font-bold text-white">{unread > 9 ? '9+' : unread}</Text>
+          </View>
+        ) : null}
+      </Pressable>
 
       <Pressable
         accessibilityRole="button"

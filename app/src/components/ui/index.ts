@@ -16,3 +16,4 @@ export * from './ProgressBar';
 export * from './SampleBadge';
 export * from './StatusChip';
 export * from './ActionSheet';
+export * from './ToggleSwitch';

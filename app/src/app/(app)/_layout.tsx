@@ -15,6 +15,7 @@ export default function AppLayout() {
       <Stack.Screen name="tarea/nueva" />
       <Stack.Screen name="tarea/[tareaId]/index" />
       <Stack.Screen name="tarea/[tareaId]/editar" />
+      <Stack.Screen name="notificaciones" />
       <Stack.Screen name="historial" />
       <Stack.Screen name="reportes" />
       <Stack.Screen name="turnos/index" />
