@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ClerkModule } from './clerk/clerk.module';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { RelojModule } from './common/reloj/reloj.module';
 import { AsistenciaModule } from './modules/asistencia/asistencia.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -12,6 +13,7 @@ import { MiembrosModule } from './modules/miembros/miembros.module';
 import { OrganizacionesModule } from './modules/organizaciones/organizaciones.module';
 import { QrModule } from './modules/qr/qr.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
+import { TareasModule } from './modules/tareas/tareas.module';
 import { TurnosModule } from './modules/turnos/turnos.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -21,6 +23,7 @@ import { PrismaModule } from './prisma/prisma.module';
     PrismaModule,
     RelojModule,
     ClerkModule,
+    CloudinaryModule,
     UsuariosModule,
     AuthModule,
     OrganizacionesModule,
@@ -32,6 +35,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AsistenciaModule,
     InicioModule,
     ReportesModule,
+    TareasModule,
   ],
   controllers: [AppController],
   providers: [AppService],
