@@ -6,3 +6,4 @@ export * from './home.schema';
 export * from './attendance.schema';
 export * from './report.schema';
 export * from './task.schema';
+export * from './notification.schema';
