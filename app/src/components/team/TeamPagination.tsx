@@ -61,16 +61,23 @@ export const TeamPagination: React.FC<TeamPaginationProps> = ({ page, pageSize, 
               accessibilityLabel={`Página ${p}`}
               accessibilityState={{ selected }}
               onPress={() => onChange(p)}
-              style={({ pressed }) => [
-                {
-                  borderCurve: 'continuous',
-                  opacity: pressed ? 0.75 : 1,
-                  backgroundColor: selected ? ThemeColors.primary : 'transparent',
-                },
-              ]}
-              className="w-11 h-11 items-center justify-center rounded-xl"
+              className="active:opacity-75"
             >
-              <Text className={`text-sm font-bold ${selected ? 'text-white' : 'text-neutral'}`}>{p}</Text>
+              {/* Fondo y radio en el `style` de un View interno (NativeWind ignora en nativo el
+                  `style` en forma de función) y `key` para remontar al cambiar de página. */}
+              <View
+                key={selected ? 'on' : 'off'}
+                style={{
+                  borderCurve: 'continuous',
+                  borderRadius: 12,
+                  backgroundColor: selected ? ThemeColors.primary : ThemeColors.screenBg,
+                }}
+                className="w-11 h-11 items-center justify-center"
+              >
+                <Text style={{ color: selected ? '#FFFFFF' : ThemeColors.neutral }} className="text-sm font-bold">
+                  {p}
+                </Text>
+              </View>
             </Pressable>
           );
         })}
