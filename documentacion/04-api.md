@@ -39,7 +39,7 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 | QR | Obtener / generar el QR del día |
 | Asistencia | Entrada, salida, jornada de hoy, historial |
 | Tareas | CRUD de tareas, adjuntos (`multipart/form-data`), estado de asignación |
-| Notificaciones | Bandeja, marcar leída, difusión a la organización, registro de push tokens |
+| Notificaciones | Bandeja (filtrable por organización), marcar una o todas como leídas, preferencias del usuario, difusión a la organización, registro de push tokens |
 | Reportes | Horas trabajadas por usuario y rango de fechas |
 
 ## Regla contract-first
@@ -59,3 +59,6 @@ Implementados en el backend:
 - **Fase 2 (asistencia):** `GET /organizaciones/{id}/qr/hoy`, `POST /asistencia/entrada`, `POST /asistencia/salida`, `GET /asistencia/hoy`, `GET /asistencia/historial`, `GET|POST /organizaciones/{id}/turnos`, `PATCH|DELETE /organizaciones/{id}/turnos/{turnoId}`, `PATCH /organizaciones/{id}/turnos/tolerancia`, `GET /organizaciones/{id}/inicio/mio`, `GET /organizaciones/{id}/inicio/panel` y `GET /organizaciones/{id}/reportes/asistencia`.
 
 El resto del contrato (notificaciones y push tokens) se implementa por fases (ver `11-roadmap.md`).
+
+Proyectados (definidos en el contrato, sin backend aún; la app los consume con datos de ejemplo de `app/src/mocks/notifications.ts`):
+- **Fase 4 (notificaciones):** `GET /notificaciones?organizacionId&leida`, `PATCH /notificaciones/{id}/leer`, `PATCH /notificaciones/leer-todas?organizacionId` y `GET|PUT /me/preferencias-notificacion`. `TipoNotificacion` suma tipos de turnos, tareas, asistencia y miembros; `Notificacion` suma `organizacionId`, `actor` y `asistencia`. Al implementarlos hay que reflejar los tipos nuevos y las preferencias en `database/schema.sql`, Prisma y `03-modelo-de-datos.md`.

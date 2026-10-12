@@ -1219,7 +1219,14 @@ paths:
     get:
       tags: [Notificaciones]
       summary: Listar notificaciones del usuario autenticado
+      description: Más recientes primero.
       parameters:
+        - name: organizacionId
+          in: query
+          description: Solo las notificaciones de esa organización (la activa en la app).
+          schema:
+            type: string
+            format: uuid
         - name: leida
           in: query
           schema:
@@ -1254,6 +1261,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Notificacion'
+
+  /notificaciones/leer-todas:
+    patch:
+      tags: [Notificaciones]
+      summary: Marcar como leídas todas las notificaciones pendientes del usuario
+      parameters:
+        - name: organizacionId
+          in: query
+          description: Solo las de esa organización.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notificaciones marcadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  actualizadas:
+                    type: integer
+                    description: Cantidad de notificaciones que pasaron a leídas
+
+  /me/preferencias-notificacion:
+    get:
+      tags: [Notificaciones]
+      summary: Preferencias de notificación del usuario autenticado
+      description: Si el usuario nunca las guardó, se devuelven los valores por defecto.
+      responses:
+        '200':
+          description: Preferencias
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenciasNotificacion'
+    put:
+      tags: [Notificaciones]
+      summary: Guardar las preferencias de notificación del usuario autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenciasNotificacion'
+      responses:
+        '200':
+          description: Preferencias guardadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenciasNotificacion'
+        '400':
+          description: Datos inválidos
 
   /push-tokens:
     post:
@@ -1407,7 +1468,26 @@ components:
 
     TipoNotificacion:
       type: string
-      enum: [TAREA_ASIGNADA, QR_DISPONIBLE, RECORDATORIO_SALIDA, SISTEMA]
+      description: >
+        La app agrupa los tipos en categorías: Turnos (TURNO_ASIGNADO,
+        TURNO_ACTUALIZADO), Tareas (TAREA_ASIGNADA, TAREA_ACTUALIZADA),
+        Asistencia (ASISTENCIA_REGISTRADA, QR_DISPONIBLE, RECORDATORIO_SALIDA)
+        y Sistema (MIEMBRO_NUEVO, SISTEMA).
+      enum:
+        - TURNO_ASIGNADO
+        - TURNO_ACTUALIZADO
+        - TAREA_ASIGNADA
+        - TAREA_ACTUALIZADA
+        - ASISTENCIA_REGISTRADA
+        - QR_DISPONIBLE
+        - RECORDATORIO_SALIDA
+        - MIEMBRO_NUEVO
+        - SISTEMA
+
+    ModoAlerta:
+      type: string
+      description: Cómo avisa el dispositivo al llegar una notificación push.
+      enum: [SONIDO, VIBRACION, SILENCIO]
 
     PlataformaDispositivo:
       type: string
@@ -2390,6 +2470,10 @@ components:
           type: string
           format: uuid
           description: id del evento de notificación (contenido compartido)
+        organizacionId:
+          type: string
+          format: uuid
+          nullable: true
         tipo:
           $ref: '#/components/schemas/TipoNotificacion'
         titulo:
@@ -2401,6 +2485,31 @@ components:
           type: string
           format: uuid
           nullable: true
+          description: >
+            Tarea (TAREA_*) o plantilla de turno (TURNO_*) a la que lleva
+            la notificación.
+        actor:
+          type: object
+          nullable: true
+          description: >
+            Quién provocó el evento (null en los avisos del sistema). La app
+            resalta su nombre dentro de `contenido`.
+          properties:
+            id:
+              type: string
+              format: uuid
+            nombre:
+              type: string
+        asistencia:
+          type: object
+          nullable: true
+          description: Solo en ASISTENCIA_REGISTRADA.
+          properties:
+            puntual:
+              type: boolean
+            turno:
+              type: string
+              description: Nombre y horario del turno, p. ej. «Turno A (09:00 - 18:00)».
         leida:
           type: boolean
         leidaEn:
@@ -2413,6 +2522,25 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    PreferenciasNotificacion:
+      type: object
+      required: [push, recordatoriosFichaje, novedadesTareas, modoAlerta]
+      properties:
+        push:
+          type: boolean
+          description: Turnos asignados, cambios y avisos urgentes por push.
+          default: true
+        recordatoriosFichaje:
+          type: boolean
+          description: Aviso 15 min antes del inicio y del término del turno.
+          default: true
+        novedadesTareas:
+          type: boolean
+          description: Avances, comentarios y subtareas de las tareas asignadas.
+          default: true
+        modoAlerta:
+          $ref: '#/components/schemas/ModoAlerta'
 
     PushToken:
       type: object
