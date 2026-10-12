@@ -11,9 +11,12 @@
 - Inicio por rol con datos reales (presencia del equipo para ADMIN y SUPERVISOR).
 - Historial de jornadas y reporte de horas trabajadas (ADMIN).
 
-### Fase 3 — Calendario y tareas
-- Calendario dinámico y creación de tareas con asignación automática.
-- Adjuntos gráficos (imágenes/archivos) en la descripción de una tarea.
+### Fase 3 — Calendario y tareas ✅
+- Calendario dinámico, creación y edición de tareas asignadas a uno o varios miembros (adelanta parte de la Fase 5).
+- Flujo de estado, prioridad, ubicación, etiquetas, subtareas, comentarios y actividad.
+- Adjuntos (PDF e imágenes) en Cloudinary.
+- Tareas reales en Inicio.
+- Pendiente para la Fase 4: notificar a las personas asignadas.
 
 ### Fase 4 — Notificaciones
 - Push mobile (Expo) y web (Web Push).

@@ -54,9 +54,9 @@
 
 ### 5.2. Pestaña «Inicio» según el rol
 La pestaña Inicio cambia según el rol del usuario en la organización activa. Todas muestran la fecha, un saludo con su nombre y su turno de hoy (`GET /organizaciones/{id}/inicio/mio`).
-- **EMPLEADO:** el **tiempo activo de hoy** (suma de tramos de la jornada real, con el progreso del turno), las métricas de la semana (horas frente a la semana anterior y puntualidad), las tareas de hoy (ejemplo hasta la Fase 3) y los compañeros.
+- **EMPLEADO:** el **tiempo activo de hoy** (suma de tramos de la jornada real, con el progreso del turno), las métricas de la semana (horas frente a la semana anterior, puntualidad y sus tareas completadas), **sus tareas de hoy** (las asignadas a esa persona que empiezan hoy) y los compañeros.
 - **SUPERVISOR:** lo mismo, más los accesos rápidos **Nueva tarea** y **Difundir aviso** (próximamente) y la **presencia del equipo** y las **asistencias recientes** (`/inicio/panel`, sin QR).
-- **ADMIN** (y SUPER_ADMIN): su propio tiempo activo y el **panel de control**: el QR dinámico (cuenta atrás, proyectar, compartir y descargar), presencia en directo, puntualidad semanal, asistencias recientes y acceso al **reporte de horas**.
+- **ADMIN** (y SUPER_ADMIN): su propio tiempo activo y el **panel de control**: el QR dinámico (cuenta atrás, proyectar, compartir y descargar), presencia en directo, puntualidad semanal, asistencias recientes, las **tareas de la organización** de la semana (completadas/total) y acceso al **reporte de horas**.
 
 ### 5.3. Turnos y puntualidad
 1. Un `ADMIN` crea plantillas de turno (nombre, hora de inicio y fin locales, días de la semana) y les asigna miembros activos. **Cada miembro tiene como máximo un turno:** asignarlo a una plantilla lo saca de la anterior; eliminar una plantilla deja a sus miembros sin turno.
@@ -69,7 +69,7 @@ La pestaña Inicio cambia según el rol del usuario en la organización activa. 
 1. **Historial** (`GET /asistencia/historial`): cada persona ve sus jornadas, de la más reciente a la más antigua, con entrada, salida, minutos trabajados y puntualidad.
 2. **Reporte** (`GET /organizaciones/{id}/reportes/asistencia`, solo `ADMIN`): por miembro, en un rango de hasta 92 días: días trabajados, minutos trabajados (suma de tramos `ENTRADA → SALIDA`, calculada en `ReportesService`), puntuales, tardanzas y minutos de retraso. Incluye a todos los miembros activos, aunque no hayan trabajado, y a los inactivos con jornadas en el rango.
 
-### 5.5. Pestaña «Tareas» (proyectado, datos de ejemplo)
+### 5.5. Pestaña «Tareas»
 1. **Calendario:** todos los roles ven las tareas de la organización (también las asignadas a otros, ver `05-autenticacion-y-autorizacion.md`), con un punto por prioridad en cada día (urgente, normal y baja), filtros por **miembro** y **prioridad**, pestañas por estado (Todas, Pendientes, En progreso, En revisión, Completadas y Vencidas) y orden por hora o prioridad. Una tarea está **vencida** si no se completó y ya pasó su hora de fin.
 2. **Flujo de la tarea:** Por hacer → En progreso → Revisión → Completada. Cualquier miembro, también EMPLEADO, lo mueve desde el detalle (o con la casilla de la tarjeta, que la completa o la reabre) y marca las subtareas, sin pasar por la edición.
 3. **Actividad:** toda acción queda registrada con quién la hizo: crear, editar (con el detalle de qué cambió: título, prioridad, fecha, horario, ubicación, etiquetas, asignados, descripción, subtareas y adjuntos), mover el estado, marcar subtareas, comentar, duplicar.

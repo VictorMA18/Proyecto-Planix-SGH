@@ -20,9 +20,11 @@ Sin credenciales nuevas.
 
 | Variable | Dónde | Descripción |
 |---|---|---|
-| `CLOUDINARY_CLOUD_NAME` | Backend | — |
-| `CLOUDINARY_API_KEY` | Backend | — |
-| `CLOUDINARY_API_SECRET` | Backend | — |
+| `CLOUDINARY_CLOUD_NAME` | Backend | Nombre de la cuenta de Cloudinary donde se guardan los adjuntos de tareas |
+| `CLOUDINARY_API_KEY` | Backend | Clave de la API de Cloudinary |
+| `CLOUDINARY_API_SECRET` | Backend | Secreto de la API de Cloudinary |
+
+Se leen solo al subir o borrar un adjunto: la API arranca sin ellas y, si faltan, adjuntar responde `503` con un mensaje claro. Los e2e reemplazan Cloudinary por un doble, así que el CI no las necesita.
 
 ## Fase 4 — Notificaciones
 

@@ -55,18 +55,7 @@ El backend valida toda entrada con **DTOs** (`class-validator` + `class-transfor
 Implementados en el backend:
 - Auth y organizaciones: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`.
 - Equipo e invitaciones: `GET /organizaciones/{id}/equipo`, `GET|PATCH|DELETE /organizaciones/{id}/miembros/{miembroId}`, `POST /organizaciones/{id}/invitaciones`, `POST /organizaciones/{id}/codigos-invitacion`, `POST /invitaciones/{id}/reenviar` y `POST /invitaciones/{token}/aceptar`.
+- **Fase 3 (tareas):** `GET|POST /organizaciones/{id}/tareas`, `GET /me/tareas`, `GET|PATCH|DELETE /tareas/{id}`, `POST /tareas/{id}/duplicar`, `PATCH /tareas/{id}/estado`, `PATCH /tareas/{id}/subtareas/{subtareaId}`, `GET|POST /tareas/{id}/comentarios`, `GET /tareas/{id}/actividad`, `POST /tareas/{id}/adjuntos`, `GET /tareas/{id}/adjuntos/{adjuntoId}/archivo` y `DELETE /tareas/{id}/adjuntos/{adjuntoId}`. Inicio (`/inicio/mio` y `/inicio/panel`) incluye ahora las tareas.
 - **Fase 2 (asistencia):** `GET /organizaciones/{id}/qr/hoy`, `POST /asistencia/entrada`, `POST /asistencia/salida`, `GET /asistencia/hoy`, `GET /asistencia/historial`, `GET|POST /organizaciones/{id}/turnos`, `PATCH|DELETE /organizaciones/{id}/turnos/{turnoId}`, `PATCH /organizaciones/{id}/turnos/tolerancia`, `GET /organizaciones/{id}/inicio/mio`, `GET /organizaciones/{id}/inicio/panel` y `GET /organizaciones/{id}/reportes/asistencia`.
 
-El resto del contrato (tareas, notificaciones, push tokens) se implementa por fases (ver `11-roadmap.md`).
-
-### Proyectados de la Fase 3 (tareas)
-
-La pestaña «Tareas», el detalle y el formulario de crear y editar ya funcionan con datos de ejemplo (`app/src/mocks/tasks.ts`, una base en memoria con la semana anterior, la actual y la siguiente) que respetan estos contratos:
-
-- `GET /organizaciones/{id}/tareas?desde&hasta[&miembroId]` (todos los roles: cualquier miembro ve las tareas de los demás) → `TareaCalendario[]`. `GET /me/tareas` devuelve la misma forma solo con las propias.
-- `GET /tareas/{id}` → `TareaDetalle` (subtareas, adjuntos). `POST /organizaciones/{id}/tareas`, `PATCH /tareas/{id}`, `DELETE /tareas/{id}` y `POST /tareas/{id}/duplicar`: solo ADMIN y SUPERVISOR.
-- `PATCH /tareas/{id}/estado` y `PATCH /tareas/{id}/subtareas/{subtareaId}`: cualquier miembro, también EMPLEADO, desde el detalle (sin pasar por la edición).
-- `GET|POST /tareas/{id}/comentarios` (cualquier miembro) y `GET /tareas/{id}/actividad`.
-- Adjuntos: solo PDF e imágenes de hasta 10 MB (los `POST|DELETE /tareas/{id}/adjuntos` ya definidos).
-
-Cambios de modelo que pedirá el backend: en `tareas`, las columnas `estado` (`PENDIENTE`, `EN_PROGRESO`, `REVISION`, `COMPLETADA`), `prioridad`, `ubicacion` y `etiquetas`; tablas nuevas para subtareas, comentarios y actividad; y la asignación a un subconjunto de miembros (`miembroIds`, adelanta parte de la Fase 5). El estado deja de ser por asignación: es de la tarea y lo mueve cualquier miembro. Toda acción queda registrada en la actividad. Los filtros de prioridad y estado se aplican en la app sobre el mes cargado.
+El resto del contrato (notificaciones y push tokens) se implementa por fases (ver `11-roadmap.md`).

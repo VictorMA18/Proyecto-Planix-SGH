@@ -123,6 +123,11 @@ Cada fila es un evento puntual de escaneo (`ENTRADA`) o confirmación de salida 
 | fecha_fin | timestamp, nullable | — |
 | creado_por | UUID (FK Usuario) | — |
 | adjuntos | JSONB | Arreglo de material gráfico/archivos que enriquecen la descripción (ver detalle abajo) |
+| estado | enum | `PENDIENTE`, `EN_PROGRESO`, `REVISION`, `COMPLETADA`. Es de la tarea (no de cada asignación); cualquier miembro lo mueve |
+| prioridad | enum | `ALTA` (urgente), `MEDIA` («Normal»), `BAJA` |
+| ubicacion | string, nullable | Lugar donde se realiza (máx. 120) |
+| etiquetas | text[] | Hasta 5 etiquetas de 24 caracteres (validadas en el backend) |
+| completada_en | timestamp, nullable | Cuándo pasó a `COMPLETADA` |
 | created_at | timestamp | Fecha de creación |
 | updated_at | timestamp | Fecha de última actualización |
 
@@ -135,6 +140,7 @@ Cada fila es un evento puntual de escaneo (`ENTRADA`) o confirmación de salida 
 | url | string | `secure_url` pública devuelta por Cloudinary |
 | cloudinaryPublicId | string | Identificador interno del asset en Cloudinary; usado por el backend para eliminarlo. No se expone al cliente |
 | nombreArchivo | string, nullable | Nombre original del archivo |
+| mimeType | string | Formato detectado por el contenido del archivo (no por su extensión) |
 | tamanoBytes | integer | Tamaño del archivo en bytes; máximo 10 MB (10 485 760) |
 | orden | integer | Posición de despliegue cuando hay varios adjuntos |
 | createdAt | timestamp | Fecha en que se agregó el adjunto |
@@ -143,19 +149,52 @@ Cada fila es un evento puntual de escaneo (`ENTRADA`) o confirmación de salida 
 - Tamaño máximo: 10 MB.
 - Formatos permitidos para `tipo = IMAGEN`: `image/jpeg`, `image/png`, `image/webp`, `image/gif`.
 - Formatos permitidos para `tipo = ARCHIVO`: `application/pdf`.
+- El formato se comprueba con los primeros bytes del archivo (firma de PDF, PNG, JPEG, GIF o WebP), no con el `Content-Type` que declara el cliente.
+- Máximo 10 adjuntos por tarea. Duplicar una tarea no copia sus adjuntos; eliminarla borra sus archivos de Cloudinary.
 
 ### 9. `AsignacionTarea`
+Persona asignada a una tarea. Quien crea o edita la tarea elige a qué miembros activos se asigna (uno o varios).
+
 | Campo | Tipo | Descripción |
 |---|---|---|
 | id | UUID | Identificador único |
 | tarea_id | UUID (FK Tarea) | — |
 | usuario_id | UUID (FK Usuario) | — |
-| estado | enum | `PENDIENTE`, `VISTA`, `COMPLETADA` |
-| completado_en | timestamp, nullable | — |
 | created_at | timestamp | Fecha de asignación |
 | updated_at | timestamp | Fecha de última actualización |
 
 Restricción: `UNIQUE(tarea_id, usuario_id)`.
+
+### 9.1. `SubtareaTarea`
+| Campo | Tipo | Descripción |
+|---|---|---|
+| id | UUID | Identificador único |
+| tarea_id | UUID (FK Tarea, cascada) | — |
+| titulo | string | Máx. 120 caracteres |
+| completada | boolean | — |
+| orden | integer | Posición en la lista |
+| created_at / updated_at | timestamp | — |
+
+### 9.2. `ComentarioTarea`
+| Campo | Tipo | Descripción |
+|---|---|---|
+| id | UUID | Identificador único |
+| tarea_id | UUID (FK Tarea, cascada) | — |
+| usuario_id | UUID (FK Usuario) | Autor |
+| texto | string | Máx. 1000 caracteres |
+| created_at / updated_at | timestamp | — |
+
+### 9.3. `ActividadTarea`
+Historial de una tarea: el backend registra un evento por cada acción (crear, editar con el detalle de qué cambió, mover el estado, marcar subtareas, comentar, adjuntar, duplicar).
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| id | UUID | Identificador único |
+| tarea_id | UUID (FK Tarea, cascada) | — |
+| usuario_id | UUID (FK Usuario), nullable | Quién lo hizo (`SET NULL` si se borra el usuario) |
+| tipo | enum | `CREADA`, `EDITADA`, `ESTADO`, `ASIGNADOS`, `SUBTAREA`, `COMENTARIO`, `ADJUNTO`, `DUPLICADA` |
+| descripcion | string | Texto legible, p. ej. «cambió la prioridad a Alta» |
+| created_at / updated_at | timestamp | — |
 
 ### 10. `Notificacion`
 Representa el contenido de un evento de notificación, una sola vez, independientemente del número de destinatarios.
