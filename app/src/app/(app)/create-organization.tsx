@@ -9,11 +9,13 @@ import { createOrganizationSchema } from '@/schemas/organization.schema';
 import { useCreateOrganization } from '@/services/organizations';
 import { useOrganizationStore } from '@/stores/useOrganizationStore';
 import { formatTimeZone } from '@/utils/format';
+import { useGoBack } from '@/hooks/use-go-back';
 
 const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Lima';
 
 export default function CreateOrganizationScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/');
   const createOrganization = useCreateOrganization();
   const setActiveOrganization = useOrganizationStore((state) => state.setActiveOrganization);
 
@@ -37,7 +39,7 @@ export default function CreateOrganizationScreen() {
         zonaHoraria: deviceTimeZone,
       });
       setActiveOrganization(organization.id);
-      router.back();
+      goBack();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'No se pudo crear la organización.');
     }
@@ -95,7 +97,7 @@ export default function CreateOrganizationScreen() {
         <AppButton
           title="Cancelar"
           variant="secondary"
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           disabled={createOrganization.isPending}
         />
       </View>

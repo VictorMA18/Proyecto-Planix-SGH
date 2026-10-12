@@ -8,10 +8,12 @@ import { MembershipsState } from '@/components/organizations';
 import { AppButton, ScreenHeader } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useAttendanceHistory } from '@/services/attendance';
 
 export default function AttendanceHistoryScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/asistencia');
   const insets = useSafeAreaInsets();
   const { organization } = useActiveOrganization();
   const history = useAttendanceHistory();
@@ -20,7 +22,7 @@ export default function AttendanceHistoryScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Historial de asistencia" onBack={() => router.back()} />
+      <ScreenHeader title="Historial de asistencia" onBack={() => goBack()} />
 
       {history.isPending ? (
         <MembershipsState status="loading" loadingText="Cargando tu historial…" />

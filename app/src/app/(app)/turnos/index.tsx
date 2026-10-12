@@ -15,11 +15,13 @@ import {
 import { AppButton, ScreenHeader } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useGoBack } from '@/hooks/use-go-back';
 import type { ShiftTemplate } from '@/schemas/attendance.schema';
 import { useShiftsConfig } from '@/services/attendance';
 
 export default function ShiftsScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/asistencia');
   const insets = useSafeAreaInsets();
   const { organization, canManageTeam, isPending: orgPending } = useActiveOrganization();
   const shifts = useShiftsConfig();
@@ -29,7 +31,7 @@ export default function ShiftsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Configuración de turnos" onBack={() => router.back()} />
+      <ScreenHeader title="Configuración de turnos" onBack={() => goBack()} />
 
       <ScrollView
         className="flex-1"

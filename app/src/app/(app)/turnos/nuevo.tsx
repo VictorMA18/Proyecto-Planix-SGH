@@ -5,9 +5,11 @@ import { Text } from 'react-native';
 import { ShiftForm } from '@/components/shifts';
 import { FormScreenLayout } from '@/components/ui';
 import { useSaveShift } from '@/services/attendance';
+import { useGoBack } from '@/hooks/use-go-back';
 
 export default function NewShiftScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/turnos');
   const save = useSaveShift();
   const [error, setError] = useState('');
 
@@ -20,13 +22,13 @@ export default function NewShiftScreen() {
         submitLabel="Crear plantilla"
         isSaving={save.isPending}
         error={error}
-        onCancel={() => router.back()}
+        onCancel={() => goBack()}
         onSubmit={(form) => {
           setError('');
           save.mutate(
             { form },
             {
-              onSuccess: () => router.back(),
+              onSuccess: () => goBack(),
               onError: (err) => setError(err.message),
             },
           );

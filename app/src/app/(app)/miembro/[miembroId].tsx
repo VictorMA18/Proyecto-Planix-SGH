@@ -14,11 +14,13 @@ import {
 import { ScreenHeader } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useMemberProfile } from '@/services/team';
 import { canModifyMember } from '@/utils/team-permissions';
 
 export default function MemberProfileScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/equipo');
   const insets = useSafeAreaInsets();
   const { miembroId } = useLocalSearchParams<{ miembroId: string }>();
   const { organization, membership, role } = useActiveOrganization();
@@ -29,7 +31,7 @@ export default function MemberProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Perfil del miembro" onBack={() => router.back()} />
+      <ScreenHeader title="Perfil del miembro" onBack={() => goBack()} />
 
       <ScrollView
         className="flex-1"

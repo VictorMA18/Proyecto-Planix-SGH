@@ -10,6 +10,7 @@ import { MembershipsState, OrganizationAccountCard } from '@/components/organiza
 import { AppButton, GoogleLogo, ScreenHeader, UserAvatar } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
+import { useGoBack } from '@/hooks/use-go-back';
 import { useProfileImage } from '@/hooks/use-profile-image';
 import { DEFAULT_TAB_HREF } from '@/constants/navigation';
 import { useActiveMembership } from '@/hooks/use-active-membership';
@@ -17,6 +18,7 @@ import { useMemberships } from '@/services/organizations';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/inicio');
   const insets = useSafeAreaInsets();
   const { signOut } = useClerk();
   const user = useUserDisplay();
@@ -44,7 +46,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Mi Cuenta PLANYX" onBack={() => router.back()} />
+      <ScreenHeader title="Mi Cuenta PLANYX" onBack={() => goBack()} />
 
       <ScrollView
         className="flex-1"

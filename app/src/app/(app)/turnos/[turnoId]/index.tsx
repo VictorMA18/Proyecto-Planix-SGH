@@ -11,6 +11,7 @@ import { ThemeColors } from '@/constants/theme';
 import { useShiftTemplate } from '@/services/attendance';
 import { formatHours, formatShiftTime } from '@/utils/attendance';
 import { getInitials } from '@/utils/format';
+import { useGoBack } from '@/hooks/use-go-back';
 
 const Row: React.FC<{ icon: keyof typeof Ionicons.glyphMap; label: string; children: React.ReactNode }> = ({
   icon,
@@ -30,6 +31,7 @@ const Row: React.FC<{ icon: keyof typeof Ionicons.glyphMap; label: string; child
 
 export default function ShiftDetailScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/turnos');
   const insets = useSafeAreaInsets();
   const { turnoId } = useLocalSearchParams<{ turnoId: string }>();
   const { template, isPending, isError, error, refetch } = useShiftTemplate(turnoId);
@@ -37,7 +39,7 @@ export default function ShiftDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Detalle del turno" onBack={() => router.back()} />
+      <ScreenHeader title="Detalle del turno" onBack={() => goBack()} />
 
       <ScrollView
         className="flex-1"
@@ -105,7 +107,7 @@ export default function ShiftDetailScreen() {
         )}
       </ScrollView>
 
-      <DeleteShiftModal template={deleting ? (template ?? null) : null} onDeleted={() => router.back()} onClose={() => setDeleting(false)} />
+      <DeleteShiftModal template={deleting ? (template ?? null) : null} onDeleted={() => goBack()} onClose={() => setDeleting(false)} />
     </SafeAreaView>
   );
 }

@@ -3,6 +3,8 @@ import React from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useGoBack } from '@/hooks/use-go-back';
+
 import { ScreenHeader } from './ScreenHeader';
 
 interface FormScreenLayoutProps {
@@ -13,11 +15,12 @@ interface FormScreenLayoutProps {
 /** Pantalla de formulario: cabecera con volver, teclado y tarjeta central como en el login. */
 export const FormScreenLayout: React.FC<FormScreenLayoutProps> = ({ title, children }) => {
   const router = useRouter();
+  const goBack = useGoBack('/inicio');
   const insets = useSafeAreaInsets();
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title={title} onBack={() => router.back()} />
+      <ScreenHeader title={title} onBack={() => goBack()} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -8,6 +8,7 @@ import { ChoiceChips, ScreenHeader, StatusChip, UserAvatar } from '@/components/
 import { ROLE_NAME } from '@/constants/roles';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useGoBack } from '@/hooks/use-go-back';
 import { reportRangeSchema, type ReportRange, type ReportRow } from '@/schemas/report.schema';
 import { useAttendanceReport } from '@/services/reports';
 import { formatDayLabel, formatMinutes } from '@/utils/attendance';
@@ -67,6 +68,7 @@ const ReportRowItem: React.FC<{ row: ReportRow; onPress: () => void }> = ({ row,
 
 export default function AttendanceReportScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/inicio');
   const insets = useSafeAreaInsets();
   const { canManageTeam, isPending: orgPending } = useActiveOrganization();
   const [range, setRange] = useState<ReportRange>('ESTA_SEMANA');
@@ -78,7 +80,7 @@ export default function AttendanceReportScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Reporte de horas" onBack={() => router.back()} />
+      <ScreenHeader title="Reporte de horas" onBack={() => goBack()} />
 
       <ScrollView
         className="flex-1"

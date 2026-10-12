@@ -8,11 +8,13 @@ import { AppButton, AppInput, FormScreenLayout } from '@/components/ui';
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
 import { PASSWORD_MIN_LENGTH } from '@/schemas/auth.schema';
 import { changePasswordSchema, type ChangePasswordInput } from '@/schemas/profile.schema';
+import { useGoBack } from '@/hooks/use-go-back';
 
 type FieldErrors = Partial<Record<keyof ChangePasswordInput, string>>;
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/profile');
   const { user, isLoaded } = useUser();
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -89,7 +91,7 @@ export default function ChangePasswordScreen() {
           <Text className="text-sm text-neutral-muted text-center mb-6">
             Usa tu nueva contraseña la próxima vez que inicies sesión.
           </Text>
-          <AppButton title="Volver a mi cuenta" onPress={() => router.back()} />
+          <AppButton title="Volver a mi cuenta" onPress={() => goBack()} />
         </View>
       </FormScreenLayout>
     );
@@ -183,7 +185,7 @@ export default function ChangePasswordScreen() {
         <AppButton
           title="Cancelar"
           variant="secondary"
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           disabled={isSaving}
         />
       </View>

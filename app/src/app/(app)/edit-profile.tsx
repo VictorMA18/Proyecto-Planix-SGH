@@ -7,11 +7,13 @@ import { Text, View } from 'react-native';
 import { AppButton, AppInput, FormScreenLayout } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { updateProfileSchema, type UpdateProfileInput } from '@/schemas/profile.schema';
+import { useGoBack } from '@/hooks/use-go-back';
 
 type FieldErrors = Partial<Record<keyof UpdateProfileInput, string>>;
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/profile');
   const { user } = useUser();
 
   const [firstName, setFirstName] = useState(user?.firstName ?? '');
@@ -52,7 +54,7 @@ export default function EditProfileScreen() {
         firstName: result.data.firstName,
         lastName: result.data.lastName,
       });
-      router.back();
+      goBack();
     } catch (err: any) {
       setErrorMessage(
         err?.errors?.[0]?.longMessage || err?.message || 'No se pudieron guardar los cambios.'
@@ -126,7 +128,7 @@ export default function EditProfileScreen() {
         <AppButton
           title="Cancelar"
           variant="secondary"
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           disabled={isSaving}
         />
       </View>

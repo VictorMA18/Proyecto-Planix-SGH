@@ -5,9 +5,11 @@ import { Text, View } from 'react-native';
 import { AppButton, AppInput, FormScreenLayout } from '@/components/ui';
 import { joinOrganizationSchema } from '@/schemas/organization.schema';
 import { useAcceptInvitation } from '@/services/organizations';
+import { useGoBack } from '@/hooks/use-go-back';
 
 export default function JoinOrganizationScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/');
   const acceptInvitation = useAcceptInvitation();
 
   const [code, setCode] = useState('');
@@ -26,7 +28,7 @@ export default function JoinOrganizationScreen() {
 
     try {
       await acceptInvitation.mutateAsync(result.data.code);
-      router.back();
+      goBack();
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'No se pudo aceptar la invitación.');
     }
@@ -76,7 +78,7 @@ export default function JoinOrganizationScreen() {
         <AppButton
           title="Cancelar"
           variant="secondary"
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           disabled={acceptInvitation.isPending}
         />
       </View>

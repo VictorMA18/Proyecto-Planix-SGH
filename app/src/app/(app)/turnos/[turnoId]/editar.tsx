@@ -6,9 +6,11 @@ import { MembershipsState } from '@/components/organizations';
 import { ShiftForm } from '@/components/shifts';
 import { FormScreenLayout } from '@/components/ui';
 import { useSaveShift, useShiftTemplate } from '@/services/attendance';
+import { useGoBack } from '@/hooks/use-go-back';
 
 export default function EditShiftScreen() {
   const router = useRouter();
+  const goBack = useGoBack('/turnos');
   const { turnoId } = useLocalSearchParams<{ turnoId: string }>();
   const { template, isPending, isError, error: loadError, refetch } = useShiftTemplate(turnoId);
   const save = useSaveShift();
@@ -32,12 +34,12 @@ export default function EditShiftScreen() {
             submitLabel="Guardar cambios"
             isSaving={save.isPending}
             error={error}
-            onCancel={() => router.back()}
+            onCancel={() => goBack()}
             onSubmit={(form) => {
               setError('');
               save.mutate(
                 { id: template.id, form },
-                { onSuccess: () => router.back(), onError: (err) => setError(err.message) },
+                { onSuccess: () => goBack(), onError: (err) => setError(err.message) },
               );
             }}
           />
