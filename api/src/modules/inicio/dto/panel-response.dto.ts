@@ -43,4 +43,6 @@ export class PanelResponseDto {
     dias: DiaPuntualidadResponseDto[];
   };
   asistenciasRecientes!: AsistenciaRecienteResponseDto[];
+  /** Tareas de toda la organización en la semana actual. */
+  tareasOrganizacion!: { completadas: number; total: number };
 }

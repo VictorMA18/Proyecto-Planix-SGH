@@ -1,5 +1,6 @@
 import type { EstadoJornada } from '@prisma/client';
 import { TurnoHoyResponseDto } from '../../asistencia/dto/asistencia-hoy-response.dto';
+import { TareaCalendarioResponseDto } from '../../tareas/dto/tarea-response.dto';
 
 export class EntradaInicioResponseDto {
   registradaEn!: Date;
@@ -29,4 +30,9 @@ export class InicioMioResponseDto {
   minutosTrabajados!: number;
   calculadoEn!: Date;
   semana!: SemanaInicioResponseDto;
+  /** Tareas asignadas al usuario: las de hoy y el avance de la semana (lunes a domingo). */
+  tareas!: {
+    hoy: TareaCalendarioResponseDto[];
+    semana: { completadas: number; total: number };
+  };
 }

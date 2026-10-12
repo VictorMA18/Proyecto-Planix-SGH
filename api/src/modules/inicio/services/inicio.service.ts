@@ -17,6 +17,7 @@ import {
 import { PrismaService } from '../../../prisma/prisma.service';
 import { JornadasService } from '../../asistencia/services/jornadas.service';
 import { QrService } from '../../qr/services/qr.service';
+import { TareasService } from '../../tareas/services/tareas.service';
 import { InicioMioResponseDto } from '../dto/inicio-mio-response.dto';
 import { PanelResponseDto } from '../dto/panel-response.dto';
 
@@ -34,6 +35,7 @@ export class InicioService {
     private readonly prisma: PrismaService,
     private readonly jornadas: JornadasService,
     private readonly qr: QrService,
+    private readonly tareas: TareasService,
   ) {}
 
   /** Inicio de cualquier rol: jornada de hoy, turno y resumen de la semana. */
@@ -59,9 +61,18 @@ export class InicioService {
         },
         include: { movimientos: true },
       });
-    const [actual, anterior] = await Promise.all([
+    const [actual, anterior, tareasHoy, tareasSemana] = await Promise.all([
       semanaDe(lunes, fecha),
       semanaDe(sumarDias(lunes, -7), sumarDias(fecha, -7)),
+      // Tareas asignadas al usuario: las que empiezan hoy y el avance de la semana.
+      this.tareas.listarEntre(
+        usuario.id,
+        ctx.organizacion,
+        fecha,
+        fecha,
+        usuario.id,
+      ),
+      this.tareas.avanceSemana(ctx.organizacion, usuario.id),
     ]);
     const total = (lista: typeof actual) =>
       lista.reduce(
@@ -101,6 +112,7 @@ export class InicioService {
             : null,
         puntualidad: contarPuntualidad(actual),
       },
+      tareas: { hoy: tareasHoy, semana: tareasSemana },
     });
   }
 
@@ -165,6 +177,7 @@ export class InicioService {
       qr: ROLES_ADMINISTRADORES.includes(rol)
         ? await this.qr.generar(organizacion, usuario.id)
         : null,
+      tareasOrganizacion: await this.tareas.avanceSemana(organizacion),
       presencia: {
         esperados: esperados.length,
         presentes: deHoy.filter((j) => j.estadoActual === 'DENTRO').length,
