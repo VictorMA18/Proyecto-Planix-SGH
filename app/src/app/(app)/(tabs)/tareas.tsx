@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { ComingSoon } from '@/components/ui';
+import { TasksScreen } from '@/screens/tasks';
 
 export default function TareasScreen() {
-  return <ComingSoon icon="checkbox-outline" title="Tareas" />;
+  return <TasksScreen />;
 }

@@ -12,6 +12,9 @@ export default function AppLayout() {
       <Stack.Screen name="index" options={{ animation: 'fade' }} />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="miembro/[miembroId]" />
+      <Stack.Screen name="tarea/nueva" />
+      <Stack.Screen name="tarea/[tareaId]/index" />
+      <Stack.Screen name="tarea/[tareaId]/editar" />
       <Stack.Screen name="historial" />
       <Stack.Screen name="reportes" />
       <Stack.Screen name="turnos/index" />
