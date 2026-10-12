@@ -60,11 +60,15 @@ export const MonthCalendar: React.FC<MonthCalendarProps> = ({ month, selectedDat
                   onPress={() => onSelect(day.key)}
                   className="flex-1 items-center py-0.5"
                 >
+                  {/* Clases fijas y colores en `style`: en nativo, cambiar las clases de NativeWind al
+                      seleccionar perdía el `rounded-2xl` y el día quedaba como un cuadrado. */}
                   <View
-                    style={{ borderCurve: 'continuous' }}
-                    className={`w-full max-w-[44px] h-12 rounded-2xl items-center justify-center ${
-                      selected ? 'bg-primary' : isToday ? 'border-2 border-primary/40' : ''
-                    }`}
+                    style={{
+                      borderCurve: 'continuous',
+                      backgroundColor: selected ? ThemeColors.primary : 'transparent',
+                      borderColor: !selected && isToday ? `${ThemeColors.primary}66` : 'transparent',
+                    }}
+                    className="w-full max-w-[44px] h-12 rounded-2xl border-2 items-center justify-center"
                   >
                     <Text
                       className={`text-sm ${

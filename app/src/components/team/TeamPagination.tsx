@@ -61,8 +61,14 @@ export const TeamPagination: React.FC<TeamPaginationProps> = ({ page, pageSize, 
               accessibilityLabel={`Página ${p}`}
               accessibilityState={{ selected }}
               onPress={() => onChange(p)}
-              style={({ pressed }) => [{ borderCurve: 'continuous', opacity: pressed ? 0.75 : 1 }]}
-              className={`w-11 h-11 items-center justify-center rounded-xl ${selected ? 'bg-primary' : ''}`}
+              style={({ pressed }) => [
+                {
+                  borderCurve: 'continuous',
+                  opacity: pressed ? 0.75 : 1,
+                  backgroundColor: selected ? ThemeColors.primary : 'transparent',
+                },
+              ]}
+              className="w-11 h-11 items-center justify-center rounded-xl"
             >
               <Text className={`text-sm font-bold ${selected ? 'text-white' : 'text-neutral'}`}>{p}</Text>
             </Pressable>
