@@ -751,30 +751,47 @@ paths:
       - $ref: '#/components/parameters/OrganizacionId'
     get:
       tags: [Tareas]
-      summary: Listar tareas de la organización (para el calendario)
+      summary: "[PROYECTADO] Tareas de la organización para el calendario (todos los roles)"
+      description: >
+        Devuelve las tareas que empiezan entre `desde` y `hasta` (fechas locales de la organización)
+        con su estado, prioridad y personas asignadas. La pestaña «Tareas» ya lo usa con datos de
+        ejemplo; los filtros de prioridad y estado se aplican en la app sobre el mes cargado.
       parameters:
         - name: desde
           in: query
+          required: true
           schema:
             type: string
             format: date
         - name: hasta
           in: query
+          required: true
+          description: Rango de hasta 62 días (un mes visible del calendario)
           schema:
             type: string
             format: date
+        - name: miembroId
+          in: query
+          description: Solo las tareas asignadas a este miembro
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Lista de tareas
+          description: Tareas del rango, ordenadas por `fechaInicio`
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Tarea'
+                  $ref: '#/components/schemas/TareaCalendario'
+        '404':
+          description: Organización inexistente o el usuario no es miembro activo
     post:
       tags: [Tareas]
-      summary: Crear una tarea (se asigna automáticamente a todos los miembros activos)
+      summary: >
+        Crear una tarea (ADMIN y SUPERVISOR). Se asigna a `miembroIds` o, si se omite, a todos los
+        miembros activos
       requestBody:
         required: true
         content:
@@ -787,7 +804,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tarea'
+                $ref: '#/components/schemas/TareaDetalle'
+        '403':
+          description: El usuario es EMPLEADO
 
   /tareas/{tareaId}:
     parameters:
@@ -799,17 +818,19 @@ paths:
           format: uuid
     get:
       tags: [Tareas]
-      summary: Obtener detalle de una tarea
+      summary: "[PROYECTADO] Detalle de una tarea (cualquier miembro de su organización)"
       responses:
         '200':
           description: Detalle de la tarea
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tarea'
+                $ref: '#/components/schemas/TareaDetalle'
+        '404':
+          description: Tarea inexistente o de otra organización
     patch:
       tags: [Tareas]
-      summary: Actualizar una tarea
+      summary: "[PROYECTADO] Editar una tarea (ADMIN y SUPERVISOR); reemplaza asignados, etiquetas y subtareas"
       requestBody:
         required: true
         content:
@@ -822,15 +843,21 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Tarea'
+                $ref: '#/components/schemas/TareaDetalle'
+        '400':
+          description: Datos inválidos (título vacío, hora de fin anterior a la de inicio…)
+        '403':
+          description: El usuario es EMPLEADO
     delete:
       tags: [Tareas]
-      summary: Eliminar una tarea
+      summary: "[PROYECTADO] Eliminar una tarea (ADMIN y SUPERVISOR)"
       responses:
         '204':
           description: Tarea eliminada
+        '403':
+          description: El usuario es EMPLEADO
 
-  /tareas/{tareaId}/asignaciones/{usuarioId}:
+  /tareas/{tareaId}/duplicar:
     parameters:
       - name: tareaId
         in: path
@@ -838,7 +865,22 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: usuarioId
+    post:
+      tags: [Tareas]
+      summary: "[PROYECTADO] Duplicar una tarea con sus asignados, etiquetas y subtareas sin completar (ADMIN y SUPERVISOR)"
+      responses:
+        '201':
+          description: Copia creada con el título «(copia)» y estado PENDIENTE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TareaDetalle'
+        '403':
+          description: El usuario es EMPLEADO
+
+  /tareas/{tareaId}/estado:
+    parameters:
+      - name: tareaId
         in: path
         required: true
         schema:
@@ -846,7 +888,8 @@ paths:
           format: uuid
     patch:
       tags: [Tareas]
-      summary: Actualizar el estado de la asignación de una tarea (vista/completada)
+      summary: "[PROYECTADO] Mover la tarea por su flujo (pendiente, en progreso, revisión, completada)"
+      description: Lo puede hacer cualquier miembro de la organización (también EMPLEADO); queda en la actividad.
       requestBody:
         required: true
         content:
@@ -856,14 +899,113 @@ paths:
               required: [estado]
               properties:
                 estado:
-                  $ref: '#/components/schemas/EstadoAsignacionTarea'
+                  $ref: '#/components/schemas/EstadoTarea'
       responses:
         '200':
-          description: Asignación actualizada
+          description: Tarea actualizada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AsignacionTarea'
+                $ref: '#/components/schemas/TareaDetalle'
+
+  /tareas/{tareaId}/subtareas/{subtareaId}:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: subtareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      tags: [Tareas]
+      summary: "[PROYECTADO] Marcar o desmarcar una subtarea (cualquier miembro; queda en la actividad)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [completada]
+              properties:
+                completada:
+                  type: boolean
+      responses:
+        '200':
+          description: Subtarea actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subtarea'
+
+  /tareas/{tareaId}/comentarios:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Tareas]
+      summary: "[PROYECTADO] Comentarios de la tarea, del más antiguo al más reciente"
+      responses:
+        '200':
+          description: Comentarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComentarioTarea'
+    post:
+      tags: [Tareas]
+      summary: "[PROYECTADO] Comentar una tarea (cualquier miembro de la organización)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        '201':
+          description: Comentario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComentarioTarea'
+
+  /tareas/{tareaId}/actividad:
+    parameters:
+      - name: tareaId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Tareas]
+      summary: "[PROYECTADO] Historial de cambios de la tarea, del más reciente al más antiguo"
+      responses:
+        '200':
+          description: Actividad
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActividadTarea'
 
   /tareas/{tareaId}/adjuntos:
     parameters:
@@ -959,7 +1101,7 @@ paths:
   /me/tareas:
     get:
       tags: [Tareas]
-      summary: Listar las tareas asignadas al usuario autenticado
+      summary: "[PROYECTADO] Tareas asignadas al usuario autenticado, para su calendario (todos los roles)"
       parameters:
         - name: organizacionId
           in: query
@@ -979,13 +1121,13 @@ paths:
             format: date
       responses:
         '200':
-          description: Tareas asignadas al usuario
+          description: Tareas asignadas al usuario, ordenadas por `fechaInicio`
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Tarea'
+                  $ref: '#/components/schemas/TareaCalendario'
 
   # =====================================================================
   # NOTIFICACIONES
@@ -1210,6 +1352,18 @@ components:
     EstadoAsignacionTarea:
       type: string
       enum: [PENDIENTE, VISTA, COMPLETADA]
+
+    PrioridadTarea:
+      type: string
+      enum: [ALTA, MEDIA, BAJA]
+      description: ALTA se muestra como «Alta prioridad» (urgente) y MEDIA como «Normal»
+
+    EstadoTarea:
+      type: string
+      enum: [PENDIENTE, EN_PROGRESO, REVISION, COMPLETADA]
+      description: >
+        [PROYECTADO, Fase 3] Flujo de la tarea («Por hacer», «En progreso», «Revisión», «Completada»).
+        Se guarda en la tarea (columna nueva `tareas.estado`).
 
     TipoAdjunto:
       type: string
@@ -1987,12 +2141,181 @@ components:
           type: string
           format: date-time
 
+    TareaCalendario:
+      type: object
+      description: "[PROYECTADO, Fase 3] Tarea tal como se muestra en el calendario de la pestaña Tareas"
+      properties:
+        id:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+          description: Texto con Markdown básico (negrita, cursiva, listas y enlaces)
+        prioridad:
+          $ref: '#/components/schemas/PrioridadTarea'
+        estado:
+          $ref: '#/components/schemas/EstadoTarea'
+        fechaInicio:
+          type: string
+          format: date-time
+        fechaFin:
+          type: string
+          format: date-time
+          nullable: true
+          description: Hora de fin del mismo día; es el vencimiento de la tarea
+        ubicacion:
+          type: string
+          nullable: true
+          description: Lugar donde se realiza (p. ej. «Torno Norte»)
+        etiquetas:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 24
+        asignados:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonaTarea'
+        asignadaAMi:
+          type: boolean
+          description: El usuario autenticado está entre los asignados
+        subtareas:
+          type: object
+          properties:
+            completadas:
+              type: integer
+            total:
+              type: integer
+        comentarios:
+          type: integer
+          description: Número de comentarios
+        creadaPor:
+          $ref: '#/components/schemas/PersonaTarea'
+
+    PersonaTarea:
+      type: object
+      properties:
+        miembroId:
+          type: string
+          format: uuid
+          nullable: true
+        nombre:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+
+    Subtarea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+          maxLength: 120
+        completada:
+          type: boolean
+
+    TareaDetalle:
+      description: "[PROYECTADO, Fase 3] Detalle de una tarea (pantalla de detalle y edición)"
+      allOf:
+        - $ref: '#/components/schemas/TareaCalendario'
+        - type: object
+          properties:
+            listaSubtareas:
+              type: array
+              items:
+                $ref: '#/components/schemas/Subtarea'
+            adjuntos:
+              type: array
+              items:
+                $ref: '#/components/schemas/TareaAdjunto'
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    ComentarioTarea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        autor:
+          $ref: '#/components/schemas/PersonaTarea'
+        texto:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ActividadTarea:
+      type: object
+      description: Evento del historial de una tarea (lo registra el backend en cada cambio)
+      properties:
+        id:
+          type: string
+          format: uuid
+        tipo:
+          type: string
+          enum: [CREADA, EDITADA, ESTADO, ASIGNADOS, SUBTAREA, COMENTARIO, ADJUNTO, DUPLICADA]
+        actor:
+          $ref: '#/components/schemas/PersonaTarea'
+        descripcion:
+          type: string
+          description: Texto legible (p. ej. «movió la tarea a Revisión»)
+        createdAt:
+          type: string
+          format: date-time
+
     CrearTareaInput:
       type: object
       required: [titulo, fechaInicio]
       properties:
+        estado:
+          $ref: '#/components/schemas/EstadoTarea'
+        etiquetas:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 24
+        subtareas:
+          type: array
+          description: Lista completa de subtareas (las que no tienen `id` se crean)
+          items:
+            type: object
+            required: [titulo]
+            properties:
+              id:
+                type: string
+                format: uuid
+              titulo:
+                type: string
+                maxLength: 120
+              completada:
+                type: boolean
         titulo:
           type: string
+        prioridad:
+          $ref: '#/components/schemas/PrioridadTarea'
+        ubicacion:
+          type: string
+        miembroIds:
+          type: array
+          description: >
+            [PROYECTADO, Fase 3] Personas asignadas. Si se omite, se asigna a todos los miembros
+            activos (adelanta parte de la Fase 5: asignación a subconjuntos).
+          items:
+            type: string
+            format: uuid
         descripcion:
           type: string
         enlace:
@@ -2007,8 +2330,40 @@ components:
     ActualizarTareaInput:
       type: object
       properties:
+        estado:
+          $ref: '#/components/schemas/EstadoTarea'
+        etiquetas:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            maxLength: 24
+        subtareas:
+          type: array
+          description: Lista completa de subtareas (las que no tienen `id` se crean)
+          items:
+            type: object
+            required: [titulo]
+            properties:
+              id:
+                type: string
+                format: uuid
+              titulo:
+                type: string
+                maxLength: 120
+              completada:
+                type: boolean
         titulo:
           type: string
+        prioridad:
+          $ref: '#/components/schemas/PrioridadTarea'
+        ubicacion:
+          type: string
+        miembroIds:
+          type: array
+          items:
+            type: string
+            format: uuid
         descripcion:
           type: string
         enlace:

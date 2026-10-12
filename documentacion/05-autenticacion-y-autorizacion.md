@@ -27,6 +27,7 @@ El rol se evalúa por membresía (`MiembroOrganizacion.rol`), no por usuario. Ca
 | Confirmar salida propia | ✅ | ✅ | ✅ | ✅ |
 | Crear tareas / difusiones | ✅ | ✅ | ✅ | ❌ |
 | Ver tareas propias asignadas | ✅ | ✅ | ✅ | ✅ |
+| Ver tareas asignadas de otros miembros | ✅ | ✅ | ✅ | ✅ |
 | Ver reporte individual | ✅ | ✅ | ✅ | ✅ |
 | Ver reporte de horas del equipo | ✅ | ✅ | ❌ | ❌ |
 | Ver reportes globales (multi-org) | ✅ | ❌ | ❌ | ❌ |

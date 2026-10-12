@@ -1,6 +1,6 @@
 # Roadmap
 
-### Fase 1 — Núcleo
+### Fase 1 — Núcleo ✅
 - Integración con Clerk (login, OAuth, webhook de sincronización).
 - Organizaciones y membresías con roles.
 - Generación de QR diario y ciclo de entrada/salida.

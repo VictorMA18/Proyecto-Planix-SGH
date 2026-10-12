@@ -69,6 +69,14 @@ La pestaña Inicio cambia según el rol del usuario en la organización activa. 
 1. **Historial** (`GET /asistencia/historial`): cada persona ve sus jornadas, de la más reciente a la más antigua, con entrada, salida, minutos trabajados y puntualidad.
 2. **Reporte** (`GET /organizaciones/{id}/reportes/asistencia`, solo `ADMIN`): por miembro, en un rango de hasta 92 días: días trabajados, minutos trabajados (suma de tramos `ENTRADA → SALIDA`, calculada en `ReportesService`), puntuales, tardanzas y minutos de retraso. Incluye a todos los miembros activos, aunque no hayan trabajado, y a los inactivos con jornadas en el rango.
 
+### 5.5. Pestaña «Tareas» (proyectado, datos de ejemplo)
+1. **Calendario:** todos los roles ven las tareas de la organización (también las asignadas a otros, ver `05-autenticacion-y-autorizacion.md`), con un punto por prioridad en cada día (urgente, normal y baja), filtros por **miembro** y **prioridad**, pestañas por estado (Todas, Pendientes, En progreso, En revisión, Completadas y Vencidas) y orden por hora o prioridad. Una tarea está **vencida** si no se completó y ya pasó su hora de fin.
+2. **Flujo de la tarea:** Por hacer → En progreso → Revisión → Completada. Cualquier miembro, también EMPLEADO, lo mueve desde el detalle (o con la casilla de la tarjeta, que la completa o la reabre) y marca las subtareas, sin pasar por la edición.
+3. **Actividad:** toda acción queda registrada con quién la hizo: crear, editar (con el detalle de qué cambió: título, prioridad, fecha, horario, ubicación, etiquetas, asignados, descripción, subtareas y adjuntos), mover el estado, marcar subtareas, comentar, duplicar.
+4. **Detalle:** asignados, prioridad, vencimiento, horario, ubicación y etiquetas; pestañas **Detalles** (descripción con Markdown básico, subtareas y adjuntos), **Comentarios** (cualquier miembro puede comentar) y **Actividad** (historial de cambios).
+5. **Gestión (solo ADMIN y SUPERVISOR):** «Nueva tarea» y «Crear otra tarea», editar (título, estado, asignados, prioridad, fecha, hora de inicio y fin, ubicación, etiquetas, descripción, subtareas y adjuntos), **duplicar** (copia con «(copia)», en Por hacer y con las subtareas sin marcar) y **eliminar**. Eliminar la tarea, una subtarea o un adjunto pide confirmación, y salir del formulario con cambios sin guardar también.
+6. **Adjuntos:** solo PDF e imágenes (JPG, PNG, WebP o GIF) de hasta 10 MB; no se admiten carpetas ni enlaces a otros servicios.
+
 ### 6. Creación de tarea con asignación automática
 1. `ADMIN` o `SUPERVISOR` crea una `Tarea`.
 2. El backend obtiene todos los `MiembroOrganizacion` con `estado = ACTIVO` de la organización.

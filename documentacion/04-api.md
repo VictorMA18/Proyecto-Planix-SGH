@@ -59,10 +59,14 @@ Implementados en el backend:
 
 El resto del contrato (tareas, notificaciones, push tokens) se implementa por fases (ver `11-roadmap.md`).
 
-Notas:
-- **Códigos de invitación:** la invitación personal (correo + rol) dura 7 días; el código genérico (solo rol) dura 5, 10 o 15 minutos y puede canjearlo cualquier persona hasta que expire. Un usuario que ya es miembro recibe `409`.
-- **Reenviar** renueva la vigencia de la invitación; el envío por correo no está implementado todavía (el administrador comparte el código a mano).
-- **Equipo:** la unión de miembros e invitaciones se arma en memoria, pensada para equipos de cientos de personas.
-- **QR dinámico:** el texto del QR rota cada 120 s y se firma con el secreto del día; se acepta también la ventana anterior como margen. Detalle en el flujo 1 de `06-flujos-de-negocio.md`.
-- **Hora del servidor:** entradas y salidas usan siempre la hora del servidor (`RelojService`); el cliente no puede enviarla. Las fechas de calendario (`fecha`) se calculan en la zona horaria de la organización.
-- **Inicio:** las tareas siguen siendo datos de ejemplo hasta la Fase 3 (esquema `TareaInicio`, proyectado).
+### Proyectados de la Fase 3 (tareas)
+
+La pestaña «Tareas», el detalle y el formulario de crear y editar ya funcionan con datos de ejemplo (`app/src/mocks/tasks.ts`, una base en memoria con la semana anterior, la actual y la siguiente) que respetan estos contratos:
+
+- `GET /organizaciones/{id}/tareas?desde&hasta[&miembroId]` (todos los roles: cualquier miembro ve las tareas de los demás) → `TareaCalendario[]`. `GET /me/tareas` devuelve la misma forma solo con las propias.
+- `GET /tareas/{id}` → `TareaDetalle` (subtareas, adjuntos). `POST /organizaciones/{id}/tareas`, `PATCH /tareas/{id}`, `DELETE /tareas/{id}` y `POST /tareas/{id}/duplicar`: solo ADMIN y SUPERVISOR.
+- `PATCH /tareas/{id}/estado` y `PATCH /tareas/{id}/subtareas/{subtareaId}`: cualquier miembro, también EMPLEADO, desde el detalle (sin pasar por la edición).
+- `GET|POST /tareas/{id}/comentarios` (cualquier miembro) y `GET /tareas/{id}/actividad`.
+- Adjuntos: solo PDF e imágenes de hasta 10 MB (los `POST|DELETE /tareas/{id}/adjuntos` ya definidos).
+
+Cambios de modelo que pedirá el backend: en `tareas`, las columnas `estado` (`PENDIENTE`, `EN_PROGRESO`, `REVISION`, `COMPLETADA`), `prioridad`, `ubicacion` y `etiquetas`; tablas nuevas para subtareas, comentarios y actividad; y la asignación a un subconjunto de miembros (`miembroIds`, adelanta parte de la Fase 5). El estado deja de ser por asignación: es de la tarea y lo mueve cualquier miembro. Toda acción queda registrada en la actividad. Los filtros de prioridad y estado se aplican en la app sobre el mes cargado.
