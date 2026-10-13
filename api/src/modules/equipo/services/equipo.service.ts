@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { RolMiembro, Usuario } from '@prisma/client';
+import { RelojService } from '../../../common/reloj/reloj.service';
 import { normalizarTexto } from '../../../common/utils/texto.util';
+import {
+  comoFechaDb,
+  fechaLocal,
+  sumarDias,
+} from '../../../common/utils/zona-horaria.util';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { InvitacionPendienteResponseDto } from '../../invitaciones/dto/invitacion-pendiente-response.dto';
 import { AccesoOrganizacionService } from '../../organizaciones/services/acceso-organizacion.service';
@@ -45,6 +51,7 @@ export class EquipoService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly acceso: AccesoOrganizacionService,
+    private readonly reloj: RelojService,
   ) {}
 
   /**
@@ -63,7 +70,7 @@ export class EquipoService {
     const [miembros, invitaciones] = await Promise.all([
       this.prisma.miembroOrganizacion.findMany({
         where: { organizacionId, estado: 'ACTIVO' },
-        include: { usuario: true },
+        include: { usuario: true, plantillaTurno: true },
       }),
       this.prisma.invitacion.findMany({
         where: {
@@ -83,6 +90,7 @@ export class EquipoService {
         })
       : [];
     const nombrePorEmail = new Map(cuentas.map((c) => [c.email, c.nombre]));
+    const dentroDesde = await this.dentroDesde(organizacionId);
 
     const todos: ItemEquipoResponseDto[] = [
       ...miembros
@@ -91,7 +99,12 @@ export class EquipoService {
             PRIORIDAD_ROL[a.rol] - PRIORIDAD_ROL[b.rol] ||
             a.usuario.nombre.localeCompare(b.usuario.nombre, 'es'),
         )
-        .map((m) => MiembroEquipoResponseDto.desde(m)),
+        .map((m) =>
+          MiembroEquipoResponseDto.desde(
+            m,
+            dentroDesde.get(m.usuarioId) ?? null,
+          ),
+        ),
       ...invitaciones.map((i) =>
         InvitacionPendienteResponseDto.desde(i, nombrePorEmail.get(i.email)),
       ),
@@ -118,6 +131,39 @@ export class EquipoService {
       pageSize,
       conteos: this.contar(todos),
     };
+  }
+
+  /**
+   * Quién está dentro ahora y desde su última entrada: jornadas abiertas de hoy o de ayer (turnos
+   * que cruzan la medianoche) en la zona de la organización.
+   */
+  private async dentroDesde(
+    organizacionId: string,
+  ): Promise<Map<string, Date>> {
+    const organizacion = await this.prisma.organizacion.findUniqueOrThrow({
+      where: { id: organizacionId },
+    });
+    const hoy = fechaLocal(this.reloj.ahora(), organizacion.zonaHoraria);
+    const abiertas = await this.prisma.jornadaAsistencia.findMany({
+      where: {
+        organizacionId,
+        estadoActual: 'DENTRO',
+        fecha: { gte: comoFechaDb(sumarDias(hoy, -1)) },
+      },
+      include: {
+        movimientos: {
+          where: { tipo: 'ENTRADA' },
+          orderBy: { hora: 'desc' },
+          take: 1,
+        },
+      },
+    });
+    return new Map(
+      abiertas.map((j) => [
+        j.usuarioId,
+        j.movimientos[0]?.hora ?? j.horaInicio,
+      ]),
+    );
   }
 
   private contar(items: ItemEquipoResponseDto[]): ConteosEquipoResponseDto {

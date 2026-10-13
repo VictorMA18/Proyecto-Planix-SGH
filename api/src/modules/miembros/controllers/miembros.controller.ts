@@ -15,15 +15,27 @@ import { MiembroResponseDto } from '../../organizaciones/dto/miembro-response.dt
 import { UsuariosService } from '../../usuarios/services/usuarios.service';
 import { CambiarRolDto } from '../dto/cambiar-rol.dto';
 import { MiembroIdParamDto } from '../dto/miembro-id-param.dto';
+import { ResumenMiembroResponseDto } from '../dto/resumen-miembro-response.dto';
 import { GestionMiembrosService } from '../services/gestion-miembros.service';
+import { ResumenMiembroService } from '../services/resumen-miembro.service';
 
 @Controller()
 @UseGuards(ClerkAuthGuard)
 export class MiembrosController {
   constructor(
     private readonly miembros: GestionMiembrosService,
+    private readonly resumenes: ResumenMiembroService,
     private readonly usuarios: UsuariosService,
   ) {}
+
+  @Get('organizaciones/:organizacionId/miembros/:miembroId/resumen')
+  async resumen(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() { organizacionId, miembroId }: MiembroIdParamDto,
+  ): Promise<ResumenMiembroResponseDto> {
+    const usuario = await this.usuarios.obtenerOCrear(user.clerkId);
+    return this.resumenes.resumen(usuario, organizacionId, miembroId);
+  }
 
   @Get('organizaciones/:organizacionId/miembros/:miembroId')
   async obtener(
