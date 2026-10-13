@@ -69,12 +69,27 @@ enum TipoActividadTarea {
 }
 
 enum TipoNotificacion {
+  TURNO_ASIGNADO
+  TURNO_ACTUALIZADO
   TAREA_ASIGNADA
+  TAREA_ACTUALIZADA
+  ASISTENCIA_REGISTRADA
   QR_DISPONIBLE
+  RECORDATORIO_ENTRADA
   RECORDATORIO_SALIDA
+  AVISO
+  MIEMBRO_NUEVO
   SISTEMA
 
   @@map("tipo_notificacion")
+}
+
+enum ModoAlerta {
+  SONIDO
+  VIBRACION
+  SILENCIO
+
+  @@map("modo_alerta")
 }
 
 enum PlataformaDispositivo {
@@ -113,6 +128,7 @@ model Organizacion {
   codigosQr         CodigoQR[]
   jornadas          JornadaAsistencia[]
   tareas            Tarea[]
+  notificaciones    Notificacion[]
 
   @@map("organizaciones")
 }
@@ -130,15 +146,19 @@ model Usuario {
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  miembros          MiembroOrganizacion[]
-  invitaciones      Invitacion[]          @relation("InvitadoPor")
-  codigosInvitacion CodigoInvitacion[]    @relation("CodigoCreadoPor")
-  codigosQr         CodigoQR[]            @relation("QrGeneradoPor")
-  jornadas          JornadaAsistencia[]
-  tareasCreadas     Tarea[]               @relation("TareaCreadaPor")
-  asignaciones      AsignacionTarea[]
-  comentariosTarea  ComentarioTarea[]
-  actividadTarea    ActividadTarea[]
+  miembros              MiembroOrganizacion[]
+  invitaciones          Invitacion[]              @relation("InvitadoPor")
+  codigosInvitacion     CodigoInvitacion[]        @relation("CodigoCreadoPor")
+  codigosQr             CodigoQR[]                @relation("QrGeneradoPor")
+  jornadas              JornadaAsistencia[]
+  tareasCreadas         Tarea[]                   @relation("TareaCreadaPor")
+  asignaciones          AsignacionTarea[]
+  comentariosTarea      ComentarioTarea[]
+  actividadTarea        ActividadTarea[]
+  notificacionesCreadas Notificacion[]            @relation("NotificacionCreadaPor")
+  notificaciones        NotificacionUsuario[]
+  pushTokens            PushToken[]
+  preferencias          PreferenciasNotificacion?
 
   @@index([email], map: "idx_usuarios_email")
   @@index([clerkId], map: "idx_usuarios_clerk_id")
@@ -381,4 +401,79 @@ model ActividadTarea {
 
   @@index([tareaId, createdAt], map: "idx_actividad_tarea")
   @@map("actividad_tarea")
+}
+
+/// Contenido de un evento de notificación, una sola vez sin importar cuántos lo reciben.
+model Notificacion {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizacionId String?          @map("organizacion_id") @db.Uuid
+  tipo           TipoNotificacion
+  titulo         String           @db.VarChar(200)
+  contenido      String?
+  referenciaId   String?          @map("referencia_id") @db.Uuid
+  /// Detalle propio del tipo (p. ej. { puntual, turno } o { fecha }).
+  datos          Json?
+  creadoPor      String?          @map("creado_por") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organizacion  Organizacion?         @relation(fields: [organizacionId], references: [id], onDelete: Cascade)
+  creador       Usuario?              @relation("NotificacionCreadaPor", fields: [creadoPor], references: [id], onDelete: SetNull)
+  destinatarios NotificacionUsuario[]
+
+  @@index([organizacionId, createdAt(sort: Desc)], map: "idx_notificaciones_org")
+  @@index([tipo, referenciaId], map: "idx_notificaciones_referencia")
+  @@map("notificaciones")
+}
+
+/// Destinatario de una notificación, con su propio estado de lectura.
+model NotificacionUsuario {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  notificacionId String    @map("notificacion_id") @db.Uuid
+  usuarioId      String    @map("usuario_id") @db.Uuid
+  leida          Boolean   @default(false)
+  leidaEn        DateTime? @map("leida_en") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  notificacion Notificacion @relation(fields: [notificacionId], references: [id], onDelete: Cascade)
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([notificacionId, usuarioId])
+  @@index([usuarioId, leida, createdAt(sort: Desc)], map: "idx_notificaciones_usuario_bandeja")
+  @@map("notificaciones_usuario")
+}
+
+/// Dispositivo o navegador al que se envían notificaciones push.
+model PushToken {
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId          String                @map("usuario_id") @db.Uuid
+  plataforma         PlataformaDispositivo
+  expoPushToken      String?               @map("expo_push_token")
+  /// Suscripción Web Push: { endpoint, keys: { p256dh, auth } }.
+  webPushSuscripcion Json?                 @map("web_push_suscripcion")
+  activo             Boolean               @default(true)
+  ultimaVezUsado     DateTime?             @map("ultima_vez_usado") @db.Timestamptz
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, activo], map: "idx_push_tokens_usuario")
+  @@map("push_tokens")
+}
+
+/// Canales y modo de alerta del usuario (sin fila se usan los valores por defecto).
+model PreferenciasNotificacion {
+  usuarioId            String     @id @map("usuario_id") @db.Uuid
+  push                 Boolean    @default(true)
+  recordatoriosFichaje Boolean    @default(true) @map("recordatorios_fichaje")
+  novedadesTareas      Boolean    @default(true) @map("novedades_tareas")
+  modoAlerta           ModoAlerta @default(SONIDO) @map("modo_alerta")
+  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("preferencias_notificacion")
 }

@@ -16,7 +16,12 @@ CREATE TYPE tipo_movimiento_asistencia AS ENUM ('ENTRADA', 'SALIDA');
 CREATE TYPE estado_tarea AS ENUM ('PENDIENTE', 'EN_PROGRESO', 'REVISION', 'COMPLETADA');
 CREATE TYPE prioridad_tarea AS ENUM ('ALTA', 'MEDIA', 'BAJA');
 CREATE TYPE tipo_actividad_tarea AS ENUM ('CREADA', 'EDITADA', 'ESTADO', 'ASIGNADOS', 'SUBTAREA', 'COMENTARIO', 'ADJUNTO', 'DUPLICADA');
-CREATE TYPE tipo_notificacion AS ENUM ('TAREA_ASIGNADA', 'QR_DISPONIBLE', 'RECORDATORIO_SALIDA', 'SISTEMA');
+CREATE TYPE tipo_notificacion AS ENUM (
+    'TURNO_ASIGNADO', 'TURNO_ACTUALIZADO', 'TAREA_ASIGNADA', 'TAREA_ACTUALIZADA',
+    'ASISTENCIA_REGISTRADA', 'QR_DISPONIBLE', 'RECORDATORIO_ENTRADA', 'RECORDATORIO_SALIDA',
+    'AVISO', 'MIEMBRO_NUEVO', 'SISTEMA'
+);
+CREATE TYPE modo_alerta AS ENUM ('SONIDO', 'VIBRACION', 'SILENCIO');
 CREATE TYPE plataforma_dispositivo AS ENUM ('ANDROID', 'IOS', 'WEB');
 CREATE TYPE estado_invitacion AS ENUM ('PENDIENTE', 'ACEPTADA', 'EXPIRADA', 'CANCELADA');
 
@@ -358,12 +363,16 @@ CREATE TABLE notificaciones (
     titulo              VARCHAR(200) NOT NULL,
     contenido           TEXT,
     referencia_id       UUID,
-    creado_por          UUID REFERENCES usuarios(id),
+    -- Detalle propio del tipo, p. ej. { puntual, turno } en ASISTENCIA_REGISTRADA o
+    -- { fecha } en RECORDATORIO_ENTRADA. Lo arma y lo interpreta el backend.
+    datos               JSONB,
+    creado_por          UUID REFERENCES usuarios(id) ON DELETE SET NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_notificaciones_org ON notificaciones (organizacion_id, created_at DESC);
+CREATE INDEX idx_notificaciones_referencia ON notificaciones (tipo, referencia_id);
 
 -- =====================================================================
 -- TABLA: notificaciones_usuario
@@ -410,8 +419,25 @@ CREATE TABLE push_tokens (
     )
 );
 
-CREATE UNIQUE INDEX uq_push_tokens_expo ON push_tokens (usuario_id, expo_push_token) WHERE expo_push_token IS NOT NULL;
+-- Un dispositivo tiene un solo token: si otra cuenta inicia sesión en él, el token pasa a esa cuenta.
+CREATE UNIQUE INDEX uq_push_tokens_expo ON push_tokens (expo_push_token) WHERE expo_push_token IS NOT NULL;
 CREATE INDEX idx_push_tokens_usuario ON push_tokens (usuario_id, activo);
+
+-- =====================================================================
+-- TABLA: preferencias_notificacion
+-- Canales y modo de alerta de cada usuario. Sin fila, el backend usa
+-- los valores por defecto (todo activado, con sonido).
+-- =====================================================================
+
+CREATE TABLE preferencias_notificacion (
+    usuario_id              UUID PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+    push                    BOOLEAN NOT NULL DEFAULT TRUE,
+    recordatorios_fichaje   BOOLEAN NOT NULL DEFAULT TRUE,
+    novedades_tareas        BOOLEAN NOT NULL DEFAULT TRUE,
+    modo_alerta             modo_alerta NOT NULL DEFAULT 'SONIDO',
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 -- =====================================================================
 -- NOTA: no existe tabla de refresh_tokens.
