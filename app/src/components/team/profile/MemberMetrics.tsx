@@ -3,9 +3,9 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { ThemeColors, ThemeStatus } from '@/constants/theme';
-import type { MemberSample } from '@/schemas/team.schema';
+import type { MemberSummary } from '@/schemas/team.schema';
 
-import { ProgressBar, SampleBadge, StatusChip } from '@/components/ui';
+import { ProgressBar, StatusChip } from '@/components/ui';
 
 const percent = (done: number, total: number) => (total > 0 ? (done / total) * 100 : 0);
 
@@ -29,24 +29,34 @@ const MetricCard: React.FC<MetricCardProps> = ({ label, icon, children }) => (
 );
 
 interface MemberMetricsProps {
-  sample: MemberSample;
+  summary: MemberSummary;
   organizationName: string;
 }
 
+/** `2026-10` → «Octubre 2026». */
+function formatPeriod(period: string): string {
+  const [year, month] = period.split('-').map(Number);
+  const label = new Date(year, month - 1, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' });
+  return label.charAt(0).toUpperCase() + label.slice(1).replace(' de ', ' ');
+}
+
 /**
- * Métricas del mes (datos de ejemplo). La puntualidad ocupa todo el ancho y las horas y tareas
- * van en dos columnas, con más aire que tres tarjetas apretadas en una fila.
+ * Métricas del mes en curso, calculadas en el backend. La puntualidad ocupa todo el ancho y las
+ * horas y tareas van en dos columnas, con más aire que tres tarjetas apretadas en una fila.
  */
-export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizationName }) => {
+export const MemberMetrics: React.FC<MemberMetricsProps> = ({ summary, organizationName }) => {
+  const rate = summary.puntualidad;
   const punctuality =
-    sample.puntualidad >= 98
-      ? { label: 'Excelente', color: ThemeStatus.success, background: ThemeStatus.successBg }
-      : sample.puntualidad >= 92
-        ? { label: 'Buena', color: ThemeStatus.info, background: ThemeStatus.infoBg }
-        : { label: 'A mejorar', color: ThemeStatus.warningText, background: ThemeStatus.warningBg };
-  const hours = sample.horas;
+    rate === null
+      ? { label: 'Sin jornadas con turno', color: ThemeColors.mutedText, background: '#F1F0F5' }
+      : rate >= 98
+        ? { label: 'Excelente', color: ThemeStatus.success, background: ThemeStatus.successBg }
+        : rate >= 92
+          ? { label: 'Buena', color: ThemeStatus.info, background: ThemeStatus.infoBg }
+          : { label: 'A mejorar', color: ThemeStatus.warningText, background: ThemeStatus.warningBg };
+  const hours = summary.horas;
   const weekGain = hours.variacionSemana >= 0;
-  const pendingTasks = sample.tareas.total - sample.tareas.completadas;
+  const pendingTasks = summary.tareas.total - summary.tareas.completadas;
 
   return (
     <View className="gap-4">
@@ -59,16 +69,15 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
         </View>
         <View className="flex-row flex-wrap items-center gap-2">
           <View className="bg-tertiary rounded-full px-3 py-1">
-            <Text className="text-xs font-bold text-primary">{sample.periodo}</Text>
+            <Text className="text-xs font-bold text-primary">{formatPeriod(summary.periodo)}</Text>
           </View>
-          <SampleBadge />
         </View>
       </View>
 
       <MetricCard label="Puntualidad" icon="timer-outline">
-        <Text className="text-4xl font-extrabold text-neutral">{sample.puntualidad.toFixed(1)}%</Text>
+        <Text className="text-4xl font-extrabold text-neutral">{rate === null ? '—' : `${rate.toFixed(1)}%`}</Text>
         <StatusChip className="self-start mt-3" text={punctuality.label} color={punctuality.color} background={punctuality.background} />
-        <ProgressBar className="mt-4" value={sample.puntualidad} color={punctuality.color} />
+        <ProgressBar className="mt-4" value={rate ?? 0} color={punctuality.color} />
       </MetricCard>
 
       <View className="flex-row gap-4">
@@ -77,6 +86,9 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
             <Text className="text-3xl font-extrabold text-neutral">
               {hours.trabajadas.toFixed(1)}
               <Text className="text-base font-medium text-neutral-muted">h</Text>
+            </Text>
+            <Text className="text-xs text-neutral-muted">
+              {hours.meta > 0 ? `de ${hours.meta.toFixed(0)} h del turno` : 'Sin turno asignado'}
             </Text>
             <StatusChip
               className="self-start mt-3"
@@ -91,8 +103,8 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
         <View className="flex-1">
           <MetricCard label="Tareas" icon="checkmark-circle-outline">
             <Text className="text-3xl font-extrabold text-neutral">
-              {sample.tareas.completadas}
-              <Text className="text-base font-medium text-neutral-muted">/{sample.tareas.total}</Text>
+              {summary.tareas.completadas}
+              <Text className="text-base font-medium text-neutral-muted">/{summary.tareas.total}</Text>
             </Text>
             <StatusChip
               className="self-start mt-3"
@@ -102,7 +114,7 @@ export const MemberMetrics: React.FC<MemberMetricsProps> = ({ sample, organizati
             />
             <ProgressBar
               className="mt-4"
-              value={percent(sample.tareas.completadas, sample.tareas.total)}
+              value={percent(summary.tareas.completadas, summary.tareas.total)}
               color={ThemeColors.primary}
             />
           </MetricCard>

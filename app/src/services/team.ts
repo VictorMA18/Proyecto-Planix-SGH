@@ -3,12 +3,11 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import { TEAM_PAGE_SIZE } from '@/constants/team';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
-import { mockMemberSample } from '@/mocks/member-sample';
 import {
   genericCodeSchema,
   invitationCodeSchema,
   memberProfileSchema,
-  memberSampleSchema,
+  memberSummarySchema,
   personalInviteSchema,
   personalInvitationCreatedSchema,
   teamInvitationSchema,
@@ -125,24 +124,33 @@ const memberKey = (
   memberId: string | undefined,
 ) => ['member', userId, organizationId, memberId] as const;
 
+/** Ver la credencial y las métricas de otro miembro: ADMIN, SUPER_ADMIN y SUPERVISOR (o el propio). */
+export const canSeeMemberSummary = (role: string | undefined, isSelf: boolean) =>
+  isSelf || role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERVISOR';
+
 /**
- * Perfil de un miembro: identidad, rol, estado e ingreso vienen del backend; la credencial digital
- * y las métricas son datos de ejemplo hasta que existan asistencia y tareas.
+ * Perfil de un miembro: identidad, rol, estado e ingreso, y (si el rol puede verlos) su credencial
+ * y sus métricas del mes. `summary` es `null` cuando no corresponde mostrarlos.
  */
 export function useMemberProfile(memberId: string | undefined) {
   const api = useApiClient();
   const { userId } = useAuth();
-  const { organization } = useActiveOrganization();
+  const { organization, membership, role } = useActiveOrganization();
   const organizationId = organization?.id;
+  const withSummary = canSeeMemberSummary(role, memberId === membership?.id);
 
   return useQuery({
-    queryKey: memberKey(userId, organizationId, memberId),
-    // GET /organizaciones/{organizacionId}/miembros/{miembroId}
+    queryKey: [...memberKey(userId, organizationId, memberId), withSummary],
+    // GET /organizaciones/{organizacionId}/miembros/{miembroId} y …/{miembroId}/resumen
     queryFn: async () => {
-      const profile = memberProfileSchema.parse(
-        await api<unknown>(`/organizaciones/${organizationId}/miembros/${memberId}`),
-      );
-      return { profile, sample: memberSampleSchema.parse(mockMemberSample(profile.id)) };
+      const base = `/organizaciones/${organizationId}/miembros/${memberId}`;
+      const [profile, summary] = await Promise.all([
+        api<unknown>(base).then((data) => memberProfileSchema.parse(data)),
+        withSummary
+          ? api<unknown>(`${base}/resumen`).then((data) => memberSummarySchema.parse(data))
+          : Promise.resolve(null),
+      ]);
+      return { profile, summary };
     },
     enabled: !!userId && !!organizationId && !!memberId,
   });

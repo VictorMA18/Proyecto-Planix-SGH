@@ -20,9 +20,10 @@ export const teamMemberSchema = z.object({
   avatarUrl: z.string().nullable(),
   rol: teamRoleSchema,
   estado: z.enum(['ACTIVO', 'INVITADO', 'INACTIVO']),
-  // Solo en los datos de ejemplo: dependen del modelo de asistencia (Fase 2).
-  turno: z.string().optional(),
-  enTurnoDesde: z.iso.datetime().optional(),
+  /** Plantilla de turno asignada. */
+  turno: z.string().nullable(),
+  /** Hora de su última entrada, si está dentro ahora. */
+  enTurnoDesde: z.iso.datetime().nullable(),
 });
 export type TeamMember = z.infer<typeof teamMemberSchema>;
 
@@ -100,25 +101,19 @@ export const memberProfileSchema = z.object({
 });
 export type MemberProfile = z.infer<typeof memberProfileSchema>;
 
-/**
- * Credencial digital y métricas del perfil. Todavía no existe backend (dependen de asistencia y
- * tareas, Fases 2 y 3): son datos de ejemplo y la pantalla los marca como tales.
- */
-export const memberSampleSchema = z.object({
+/** Credencial y métricas del mes de un miembro (contrato ResumenMiembro). */
+export const memberSummarySchema = z.object({
+  /** Mes en curso, `YYYY-MM`. */
   periodo: z.string(),
-  turno: z.string(),
-  jornada: z.object({ inicio: z.string(), fin: z.string() }),
-  registroEntrada: z.string(),
-  puntualidad: z.number().min(0).max(100),
-  /** Horas trabajadas en el mes, su meta y cuánto varió respecto a la semana anterior. */
-  horas: z.object({
-    trabajadas: z.number().min(0),
-    meta: z.number().positive(),
-    variacionSemana: z.number(),
-  }),
+  turno: z.object({ nombre: z.string(), horaInicio: z.string(), horaFin: z.string() }).nullable(),
+  entradaHoy: z.iso.datetime().nullable(),
+  /** Porcentaje de jornadas puntuales del mes; `null` si no hay ninguna evaluada. */
+  puntualidad: z.number().min(0).max(100).nullable(),
+  /** Horas trabajadas en el mes, la meta del turno y la variación frente a la semana anterior. */
+  horas: z.object({ trabajadas: z.number().min(0), meta: z.number().min(0), variacionSemana: z.number() }),
   tareas: z.object({ completadas: z.number().int(), total: z.number().int() }),
 });
-export type MemberSample = z.infer<typeof memberSampleSchema>;
+export type MemberSummary = z.infer<typeof memberSummarySchema>;
 
 export const changeRoleSchema = z.object({ rol: inviteRoleSchema });
 export type ChangeRoleInput = z.infer<typeof changeRoleSchema>;

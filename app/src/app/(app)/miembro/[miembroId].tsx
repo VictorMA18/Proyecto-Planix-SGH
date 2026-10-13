@@ -67,8 +67,12 @@ export default function MemberProfileScreen() {
               })}
               onChangeRole={() => setChangeRoleOpen(true)}
             />
-            <DigitalCredentialCard sample={query.data.sample} />
-            <MemberMetrics sample={query.data.sample} organizationName={organizationName} />
+            {query.data.summary ? (
+              <>
+                <DigitalCredentialCard summary={query.data.summary} />
+                <MemberMetrics summary={query.data.summary} organizationName={organizationName} />
+              </>
+            ) : null}
             <MemberWorkInfo profile={query.data.profile} organizationName={organizationName} />
           </View>
         )}
