@@ -21,9 +21,11 @@ export const NOTIFICATION_TYPES: Record<
   TAREA_ACTUALIZADA: { category: 'TAREAS', icon: 'checkbox-outline', action: 'TAREA' },
   ASISTENCIA_REGISTRADA: { category: 'ASISTENCIA', icon: 'qr-code-outline' },
   QR_DISPONIBLE: { category: 'ASISTENCIA', icon: 'qr-code-outline' },
-  RECORDATORIO_SALIDA: { category: 'ASISTENCIA', icon: 'alarm-outline' },
+  RECORDATORIO_ENTRADA: { category: 'ASISTENCIA', icon: 'alarm-outline' },
+  RECORDATORIO_SALIDA: { category: 'ASISTENCIA', icon: 'exit-outline' },
+  AVISO: { category: 'AVISOS', icon: 'megaphone-outline' },
   MIEMBRO_NUEVO: { category: 'SISTEMA', icon: 'person-add-outline' },
-  SISTEMA: { category: 'SISTEMA', icon: 'megaphone-outline' },
+  SISTEMA: { category: 'SISTEMA', icon: 'information-circle-outline' },
 };
 
 export const NOTIFICATION_ACTIONS: Record<'TURNO' | 'TAREA', { label: string; icon: IconName }> = {
@@ -35,6 +37,7 @@ export const NOTIFICATION_CATEGORIES: { value: NotificationCategory; label: stri
   { value: 'TURNOS', label: 'Turnos', icon: 'calendar-outline' },
   { value: 'TAREAS', label: 'Tareas', icon: 'checkmark-circle-outline' },
   { value: 'ASISTENCIA', label: 'Asistencia', icon: 'qr-code-outline' },
+  { value: 'AVISOS', label: 'Avisos', icon: 'megaphone-outline' },
   { value: 'SISTEMA', label: 'Sistema', icon: 'business-outline' },
 ];
 

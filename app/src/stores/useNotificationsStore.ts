@@ -11,6 +11,8 @@ interface NotificationsState {
   setRead: (read: NotificationReadFilter) => void;
   /** Elige la categoría o, si ya estaba elegida, la quita. */
   toggleCategory: (category: NotificationCategory) => void;
+  /** Abre la bandeja en una categoría (p. ej. «Avisos» tras difundir uno). */
+  showCategory: (category: NotificationCategory) => void;
 }
 
 export const useNotificationsStore = create<NotificationsState>((set) => ({
@@ -18,4 +20,5 @@ export const useNotificationsStore = create<NotificationsState>((set) => ({
   category: null,
   setRead: (read) => set({ read }),
   toggleCategory: (category) => set((state) => ({ category: state.category === category ? null : category })),
+  showCategory: (category) => set({ read: 'TODAS', category }),
 }));

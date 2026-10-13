@@ -28,7 +28,7 @@ function resolveBaseUrl(): string {
 const BASE_URL = resolveBaseUrl();
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** Cuerpo multipart (subida de archivos). `fetch` pone el `Content-Type` con su boundary. */
   formData?: FormData;

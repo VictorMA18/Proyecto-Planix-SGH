@@ -60,8 +60,7 @@ export const NotificationsScreen: React.FC = () => {
     open(notification);
     const action = NOTIFICATION_TYPES[notification.tipo].action;
     if (action === 'TAREA' && notification.referenciaId) router.push(`/tarea/${notification.referenciaId}`);
-    // Cada miembro ve su turno en Asistencia.
-    if (action === 'TURNO') router.navigate('/asistencia');
+    if (action === 'TURNO') router.push('/mi-turno');
   };
 
   const categoryLabel = NOTIFICATION_CATEGORIES.find((option) => option.value === category)?.label;

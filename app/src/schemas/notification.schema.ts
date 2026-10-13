@@ -1,8 +1,7 @@
 import { z } from 'zod';
 
-// Esquemas del centro de notificaciones (Fase 4). Coinciden con los contratos proyectados
-// Notificacion, TipoNotificacion, ModoAlerta y PreferenciasNotificacion de api/openapi.yaml. Por
-// ahora los datos son de ejemplo (`src/mocks/notifications.ts`).
+// Esquemas del centro de notificaciones (Fase 4). Coinciden con los contratos Notificacion,
+// TipoNotificacion, ModoAlerta, PreferenciasNotificacion y PushToken de api/openapi.yaml.
 
 export const notificationTypeSchema = z.enum([
   'TURNO_ASIGNADO',
@@ -11,7 +10,9 @@ export const notificationTypeSchema = z.enum([
   'TAREA_ACTUALIZADA',
   'ASISTENCIA_REGISTRADA',
   'QR_DISPONIBLE',
+  'RECORDATORIO_ENTRADA',
   'RECORDATORIO_SALIDA',
+  'AVISO',
   'MIEMBRO_NUEVO',
   'SISTEMA',
 ]);
@@ -50,8 +51,44 @@ export const notificationPreferencesSchema = z.object({
 export type NotificationPreferences = z.infer<typeof notificationPreferencesSchema>;
 
 /** Categorías de los chips de filtro; agrupan los tipos (ver `NOTIFICATION_TYPES`). */
-export const notificationCategorySchema = z.enum(['TURNOS', 'TAREAS', 'ASISTENCIA', 'SISTEMA']);
+export const notificationCategorySchema = z.enum(['TURNOS', 'TAREAS', 'ASISTENCIA', 'AVISOS', 'SISTEMA']);
 export type NotificationCategory = z.infer<typeof notificationCategorySchema>;
+
+/** A quién llega un aviso: a todo el equipo o solo a los miembros elegidos. */
+export const broadcastAudienceSchema = z.enum(['TODOS', 'MIEMBROS']);
+export type BroadcastAudience = z.infer<typeof broadcastAudienceSchema>;
+
+/** Formulario de «Difundir aviso» (POST /organizaciones/{id}/notificaciones/difusion). */
+export const broadcastFormSchema = z
+  .object({
+    titulo: z.string().trim().min(3, 'El título debe tener al menos 3 caracteres.').max(120, 'Máximo 120 caracteres.'),
+    contenido: z.string().trim().min(1, 'Escribe el mensaje del aviso.').max(500, 'Máximo 500 caracteres.'),
+    destinatarios: broadcastAudienceSchema,
+    miembroIds: z.array(z.string()),
+  })
+  .refine((form) => form.destinatarios === 'TODOS' || form.miembroIds.length > 0, {
+    path: ['miembroIds'],
+    message: 'Elige al menos a un miembro.',
+  });
+export type BroadcastFormInput = z.infer<typeof broadcastFormSchema>;
+
+/** Cuerpo de la petición: sin `miembroIds`, el aviso llega a todos los miembros activos. */
+export const toBroadcastRequest = ({ titulo, contenido, destinatarios, miembroIds }: BroadcastFormInput) => ({
+  titulo,
+  contenido,
+  ...(destinatarios === 'MIEMBROS' ? { miembroIds } : {}),
+});
+export type BroadcastRequest = ReturnType<typeof toBroadcastRequest>;
+
+export const broadcastResultSchema = z.object({ notificacionesCreadas: z.number().int().min(0) });
+
+/** Respuesta de `POST /push-tokens` (solo lo que usa la app). */
+export const pushTokenSchema = z.object({ id: z.string(), activo: z.boolean() });
+
+/** Lo que hay que enviar para registrar este dispositivo o navegador. */
+export type PushTokenInput =
+  | { plataforma: 'ANDROID' | 'IOS'; expoPushToken: string }
+  | { plataforma: 'WEB'; webPushSubscription: { endpoint: string; keys: { p256dh: string; auth: string } } };
 
 export const notificationReadFilterSchema = z.enum(['TODAS', 'NO_LEIDAS']);
 export type NotificationReadFilter = z.infer<typeof notificationReadFilterSchema>;

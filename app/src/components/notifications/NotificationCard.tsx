@@ -74,6 +74,13 @@ export const NotificationCard: React.FC<NotificationCardProps> = ({ notification
             </Text>
           ) : null}
 
+          {/* En los avisos el autor no está en el texto: se indica aparte. */}
+          {notification.actor && !notification.contenido?.includes(notification.actor.nombre) ? (
+            <Text className="mt-1 text-xs text-neutral-muted">
+              Por <Text className="font-bold text-neutral">{notification.actor.nombre}</Text>
+            </Text>
+          ) : null}
+
           {notification.asistencia ? (
             <View className="mt-2 flex-row flex-wrap items-center gap-2">
               <View

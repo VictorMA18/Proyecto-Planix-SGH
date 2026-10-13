@@ -78,7 +78,7 @@ export function filterNotifications(
 }
 
 export function countByCategory(items: AppNotification[]): Record<NotificationCategory, number> {
-  const counts: Record<NotificationCategory, number> = { TURNOS: 0, TAREAS: 0, ASISTENCIA: 0, SISTEMA: 0 };
+  const counts: Record<NotificationCategory, number> = { TURNOS: 0, TAREAS: 0, ASISTENCIA: 0, AVISOS: 0, SISTEMA: 0 };
   for (const item of items) counts[categoryOf(item)] += 1;
   return counts;
 }

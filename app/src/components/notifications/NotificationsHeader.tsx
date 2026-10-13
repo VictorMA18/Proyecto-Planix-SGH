@@ -33,7 +33,7 @@ export const NotificationsHeader: React.FC<NotificationsHeaderProps> = ({
         onPress={onBack}
         hitSlop={4}
         style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
-        className="w-11 h-11 rounded-full bg-tertiary items-center justify-center"
+        className="w-11 h-11 rounded-full bg-cardBg border border-borderBg items-center justify-center"
       >
         <Ionicons name="arrow-back" size={20} color={ThemeColors.neutral} />
       </Pressable>
