@@ -61,6 +61,33 @@ describe('Turnos: plantillas, asignaciones y tolerancia (e2e)', () => {
     });
   });
 
+  it('cualquier rol ve su plantilla (días y equipo) en «asistencia/hoy»', async () => {
+    const hoy = (clerkId: string) =>
+      t.http
+        .get(`/asistencia/hoy?organizacionId=${e.orgId}`)
+        .set(como(clerkId))
+        .expect(200);
+
+    // El EMPLEADO no puede leer la configuración, pero sí el detalle de su turno.
+    await t.http.get(base()).set(como(e.clerk.empleado)).expect(403);
+    const empleado = await hoy(e.clerk.empleado);
+    expect(empleado.body.plantilla).toMatchObject({
+      id: mananaId,
+      nombre: 'Turno Mañana',
+      horaInicio: '08:00',
+      horaFin: '17:00',
+      dias: [1, 2, 3, 4, 5],
+      asignados: 1,
+    });
+    expect(empleado.body.plantilla.equipo[0]).toMatchObject({
+      id: e.miembro.empleado,
+      nombre: 'Empleado E2E',
+    });
+
+    const supervisor = await hoy(e.clerk.supervisor);
+    expect(supervisor.body.plantilla).toBeNull();
+  });
+
   it('valida el horario, los días y que los miembros sean del equipo activo', async () => {
     const admin = como(e.clerk.admin);
     await t.http

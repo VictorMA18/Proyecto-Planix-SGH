@@ -3,6 +3,7 @@ import {
   INestApplication,
   UnauthorizedException,
 } from '@nestjs/common';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import { Test } from '@nestjs/testing';
 import type { RolMiembro } from '@prisma/client';
 import request from 'supertest';
@@ -11,6 +12,8 @@ import { CloudinaryService } from '../../../src/cloudinary/cloudinary.service';
 import { configureApp } from '../../../src/app.setup';
 import { ClerkAuthGuard } from '../../../src/common/guards/clerk-auth.guard';
 import { RelojService } from '../../../src/common/reloj/reloj.service';
+import { ColaPushService } from '../../../src/mensajeria/cola-push.service';
+import type { MensajePush } from '../../../src/mensajeria/mensaje-push.interface';
 import { PrismaService } from '../../../src/prisma/prisma.service';
 
 // Piezas comunes de los e2e de asistencia: el guard de Clerk se reemplaza por la cabecera
@@ -51,17 +54,32 @@ export class CloudinaryDePrueba {
   }
 }
 
+/** Doble de la cola de RabbitMQ: guarda los push encolados, sin red. */
+export class ColaPushDePrueba {
+  mensajes: MensajePush[] = [];
+  publicar(mensaje: MensajePush) {
+    this.mensajes.push(mensaje);
+    return Promise.resolve();
+  }
+  /** Push encolados para un usuario. */
+  para(usuarioId: string) {
+    return this.mensajes.filter((m) => m.usuarioIds.includes(usuarioId));
+  }
+}
+
 export interface AppDePrueba {
   app: INestApplication;
   http: ReturnType<typeof request>;
   prisma: PrismaService;
   reloj: RelojDePrueba;
   cloudinary: CloudinaryDePrueba;
+  cola: ColaPushDePrueba;
 }
 
 export async function crearAppDePrueba(): Promise<AppDePrueba> {
   const reloj = new RelojDePrueba();
   const cloudinary = new CloudinaryDePrueba();
+  const cola = new ColaPushDePrueba();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideGuard(ClerkAuthGuard)
     .useValue({
@@ -77,17 +95,25 @@ export async function crearAppDePrueba(): Promise<AppDePrueba> {
     .useValue(reloj)
     .overrideProvider(CloudinaryService)
     .useValue(cloudinary)
+    .overrideProvider(ColaPushService)
+    .useValue(cola)
     .compile();
 
   const app = moduleRef.createNestApplication();
   configureApp(app);
   await app.init();
+  // Los recordatorios se prueban llamando `ejecutar()` con el reloj fijo, no con el cron real.
+  const programador = app.get(SchedulerRegistry);
+  for (const nombre of programador.getCronJobs().keys()) {
+    programador.deleteCronJob(nombre);
+  }
   return {
     app,
     http: request(app.getHttpServer()),
     prisma: app.get(PrismaService),
     reloj,
     cloudinary,
+    cola,
   };
 }
 

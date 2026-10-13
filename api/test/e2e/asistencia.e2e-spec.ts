@@ -48,6 +48,7 @@ describe('Asistencia: entrada, salida, hoy e historial (e2e)', () => {
       fecha: '2026-10-09',
       toleranciaMin: 15,
       turno: null,
+      plantilla: null,
       jornada: null,
     });
   });

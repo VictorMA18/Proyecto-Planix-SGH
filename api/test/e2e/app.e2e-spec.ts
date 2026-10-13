@@ -16,6 +16,11 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
+  // Cierra la app: si no, las tareas programadas (recordatorios) dejan vivo el proceso de Jest.
+  afterEach(async () => {
+    await app.close();
+  });
+
   it('/ (GET)', () => {
     return request(app.getHttpServer())
       .get('/')
