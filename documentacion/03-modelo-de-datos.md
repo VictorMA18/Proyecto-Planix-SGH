@@ -203,11 +203,12 @@ Representa el contenido de un evento de notificación, una sola vez, independien
 |---|---|---|
 | id | UUID | Identificador único |
 | organizacion_id | UUID (FK Organizacion), nullable | — |
-| tipo | enum | `TAREA_ASIGNADA`, `QR_DISPONIBLE`, `RECORDATORIO_SALIDA`, `SISTEMA` |
+| tipo | enum | `TURNO_ASIGNADO`, `TURNO_ACTUALIZADO`, `TAREA_ASIGNADA`, `TAREA_ACTUALIZADA`, `ASISTENCIA_REGISTRADA`, `QR_DISPONIBLE`, `RECORDATORIO_ENTRADA`, `RECORDATORIO_SALIDA`, `AVISO`, `MIEMBRO_NUEVO`, `SISTEMA` |
 | titulo | string | — |
 | contenido | text, nullable | — |
-| referencia_id | UUID, nullable | Id de la entidad relacionada (tarea, jornada, etc.) |
-| creado_por | UUID (FK Usuario), nullable | Null si el evento lo genera el sistema |
+| referencia_id | UUID, nullable | Id de la entidad relacionada (tarea, plantilla de turno o jornada) |
+| datos | JSON, nullable | Detalle propio del tipo: `{ puntual, turno }` en `ASISTENCIA_REGISTRADA`, `{ fecha }` en `RECORDATORIO_ENTRADA` |
+| creado_por | UUID (FK Usuario), nullable | Quien provocó el evento (la app lo muestra como autor); null si lo genera el sistema o si se eliminó el usuario |
 | created_at | timestamp | — |
 | updated_at | timestamp | Fecha de última actualización |
 
@@ -239,7 +240,19 @@ Restricción: `UNIQUE(notificacion_id, usuario_id)`.
 | created_at | timestamp | Fecha de creación |
 | updated_at | timestamp | Fecha de última actualización |
 
-Restricción: `CHECK` que exige `expo_push_token` XOR `web_push_suscripcion` según `plataforma`.
+Restricción: `CHECK` que exige `expo_push_token` XOR `web_push_suscripcion` según `plataforma`. `expo_push_token` es único: si otra cuenta inicia sesión en el mismo dispositivo, el token pasa a esa cuenta. Las suscripciones web se reconocen por su `endpoint` en el backend. El backend marca `activo = false` cuando el proveedor informa que el token ya no es válido o al cerrar sesión.
+
+### 12.1. `PreferenciasNotificacion`
+Canales y modo de alerta de cada usuario. Sin fila, el backend aplica los valores por defecto.
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| usuario_id | UUID (PK, FK Usuario) | — |
+| push | boolean | Recibir notificaciones push (por defecto `true`); la bandeja se llena igual |
+| recordatorios_fichaje | boolean | Recordatorios 15 min antes del inicio y del término del turno |
+| novedades_tareas | boolean | Avances, comentarios y subtareas de las tareas propias (la asignación siempre llega) |
+| modo_alerta | enum | `SONIDO`, `VIBRACION`, `SILENCIO`: cómo suena el push en el dispositivo |
+| created_at / updated_at | timestamp | — |
 
 No existe tabla de sesiones/refresh tokens: la gestión de sesión la resuelve Clerk (ver `05-autenticacion-y-autorizacion.md`).
 

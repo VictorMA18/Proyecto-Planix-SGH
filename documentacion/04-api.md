@@ -39,7 +39,7 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 | QR | Obtener / generar el QR del día |
 | Asistencia | Entrada, salida, jornada de hoy, historial |
 | Tareas | CRUD de tareas, adjuntos (`multipart/form-data`), estado de asignación |
-| Notificaciones | Bandeja (filtrable por organización), marcar una o todas como leídas, preferencias del usuario, difusión a la organización, registro de push tokens |
+| Notificaciones | Bandeja (filtrable por organización), marcar una o todas como leídas, preferencias del usuario, difusión a la organización, registro y baja de push tokens, clave VAPID pública |
 | Reportes | Horas trabajadas por usuario y rango de fechas |
 
 ## Regla contract-first
@@ -56,9 +56,9 @@ Implementados en el backend:
 - Auth y organizaciones: `GET /auth/me`, `POST /webhooks/clerk`, `GET /me/membresias`, `POST /organizaciones`.
 - Equipo e invitaciones: `GET /organizaciones/{id}/equipo`, `GET|PATCH|DELETE /organizaciones/{id}/miembros/{miembroId}`, `POST /organizaciones/{id}/invitaciones`, `POST /organizaciones/{id}/codigos-invitacion`, `POST /invitaciones/{id}/reenviar` y `POST /invitaciones/{token}/aceptar`.
 - **Fase 3 (tareas):** `GET|POST /organizaciones/{id}/tareas`, `GET /me/tareas`, `GET|PATCH|DELETE /tareas/{id}`, `POST /tareas/{id}/duplicar`, `PATCH /tareas/{id}/estado`, `PATCH /tareas/{id}/subtareas/{subtareaId}`, `GET|POST /tareas/{id}/comentarios`, `GET /tareas/{id}/actividad`, `POST /tareas/{id}/adjuntos`, `GET /tareas/{id}/adjuntos/{adjuntoId}/archivo` y `DELETE /tareas/{id}/adjuntos/{adjuntoId}`. Inicio (`/inicio/mio` y `/inicio/panel`) incluye ahora las tareas.
-- **Fase 2 (asistencia):** `GET /organizaciones/{id}/qr/hoy`, `POST /asistencia/entrada`, `POST /asistencia/salida`, `GET /asistencia/hoy`, `GET /asistencia/historial`, `GET|POST /organizaciones/{id}/turnos`, `PATCH|DELETE /organizaciones/{id}/turnos/{turnoId}`, `PATCH /organizaciones/{id}/turnos/tolerancia`, `GET /organizaciones/{id}/inicio/mio`, `GET /organizaciones/{id}/inicio/panel` y `GET /organizaciones/{id}/reportes/asistencia`.
+- **Fase 2 (asistencia):** `GET /organizaciones/{id}/qr/hoy`, `POST /asistencia/entrada`, `POST /asistencia/salida`, `GET /asistencia/hoy` (incluye la plantilla de turno del miembro, con días y equipo, para que cualquier rol vea el detalle de su turno), `GET /asistencia/historial`, `GET|POST /organizaciones/{id}/turnos`, `PATCH|DELETE /organizaciones/{id}/turnos/{turnoId}`, `PATCH /organizaciones/{id}/turnos/tolerancia`, `GET /organizaciones/{id}/inicio/mio`, `GET /organizaciones/{id}/inicio/panel` y `GET /organizaciones/{id}/reportes/asistencia`.
 
-El resto del contrato (notificaciones y push tokens) se implementa por fases (ver `11-roadmap.md`).
+- **Fase 4 (notificaciones):** `GET /notificaciones?organizacionId&leida&page&pageSize`, `PATCH /notificaciones/{id}/leer` (`404` si es de otro usuario), `PATCH /notificaciones/leer-todas?organizacionId`, `GET|PUT /me/preferencias-notificacion`, `POST /organizaciones/{id}/notificaciones/difusion` (avisos de ADMIN o SUPERVISOR a todo el equipo o a los `miembroIds` elegidos), `POST|DELETE /push-tokens` y `GET /push-tokens/clave-web` (clave VAPID pública; `503` si no está configurada).
+- **Perfil del miembro:** `GET /organizaciones/{id}/miembros/{miembroId}/resumen` (credencial y métricas del mes; lo ven ADMIN, SUPER_ADMIN, SUPERVISOR y el propio miembro).
 
-Proyectados (definidos en el contrato, sin backend aún; la app los consume con datos de ejemplo de `app/src/mocks/notifications.ts`):
-- **Fase 4 (notificaciones):** `GET /notificaciones?organizacionId&leida`, `PATCH /notificaciones/{id}/leer`, `PATCH /notificaciones/leer-todas?organizacionId` y `GET|PUT /me/preferencias-notificacion`. `TipoNotificacion` suma tipos de turnos, tareas, asistencia y miembros; `Notificacion` suma `organizacionId`, `actor` y `asistencia`. Al implementarlos hay que reflejar los tipos nuevos y las preferencias en `database/schema.sql`, Prisma y `03-modelo-de-datos.md`.
+Todo el contrato está implementado.

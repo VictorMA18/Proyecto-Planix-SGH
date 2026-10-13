@@ -26,8 +26,26 @@ Las integraciones se conectan de forma iterativa, según la fase del roadmap que
 
 ## RabbitMQ
 
-- Desarrollo: contenedor Docker `rabbitmq:3-management` (ver `01-instalacion.md`).
-- NestJS publica y consume con `@nestjs/microservices`, transporte `RMQ`.
+- Desarrollo: contenedor Docker `rabbitmq:3-management` (ver `01-instalacion.md`), con `RABBITMQ_URL=amqp://sgh:sgh@localhost:5672` en `api/.env`.
+- NestJS publica (`ColaPushService`, `ClientRMQ`) y consume (`DespachoPushController`, microservicio RMQ conectado en `main.ts`) con `@nestjs/microservices`, en la cola durable `push_despacho`.
+- Sin `RABBITMQ_URL` la API arranca igual: las notificaciones quedan en la bandeja y solo se omite el push. Los e2e reemplazan la cola por un doble en memoria.
+
+## Expo Push Service (Android e iOS)
+
+- El backend envía con `expo-server-sdk` (`ExpoPushService`); `EXPO_ACCESS_TOKEN` solo hace falta si se activa la seguridad mejorada del proyecto en Expo.
+- La app obtiene el token con `expo-notifications` (`getExpoPushTokenAsync({ projectId })`) y lo registra con `POST /push-tokens`; al cerrar sesión lo da de baja con `DELETE /push-tokens`.
+- **Expo Go en Android no recibe push remotos (desde el SDK 53):** para probarlo hace falta una development build. Pasos:
+  1. `npx eas init` en `app/` (agrega `extra.eas.projectId` a `app.json`).
+  2. Configurar FCM: crear el proyecto en Firebase con la app Android `com.planix.sgh`, descargar `google-services.json` a `app/` (no se versiona, está en `.gitignore`) y subir la clave de cuenta de servicio (FCM V1) a EAS (`npx eas credentials`). Esa clave no se guarda en el repo.
+  3. Para EAS Build, subir `google-services.json` como variable de tipo archivo: `npx eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment development --visibility secret`. `app/app.config.js` la usa en lugar del archivo local.
+  4. `npx eas build --profile development --platform android` (o `npx expo run:android` con el SDK de Android instalado) e instalar el APK. Luego se trabaja con `pnpm start` como siempre, abriendo la app de desarrollo en vez de Expo Go; solo se recompila al cambiar dependencias nativas o `app.json`.
+- La app crea los canales de Android `alerta_sonido`, `alerta_vibracion` y `alerta_silencio`; el backend elige el canal según `modo_alerta`. Android no deja cambiar el sonido de un canal ya creado: si se cambia su configuración, hay que usar un ID nuevo y borrar el anterior.
+
+## Web Push (VAPID)
+
+- Claves: `npx web-push generate-vapid-keys` → `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` en `api/.env`, más `VAPID_SUBJECT` (`mailto:` o URL del responsable).
+- La app web pide la clave pública con `GET /push-tokens/clave-web`, registra el service worker `app/public/sw.js`, se suscribe con `PushManager.subscribe` y envía la suscripción a `POST /push-tokens`.
+- El backend envía con `web-push` (`WebPushService`); si el navegador anuló la suscripción (404/410), el token se desactiva.
 
 ## Stitch (MCP)
 

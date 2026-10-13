@@ -32,8 +32,11 @@ Se leen solo al subir o borrar un adjunto: la API arranca sin ellas y, si faltan
 |---|---|---|
 | `RABBITMQ_URL` | Backend | Ej. `amqp://sgh:sgh@localhost:5672` |
 | `EXPO_ACCESS_TOKEN` | Backend | Envío por Expo Push Service (si se activa seguridad mejorada) |
-| `VAPID_PUBLIC_KEY` | Backend / App | Web Push |
+| `VAPID_PUBLIC_KEY` | Backend | Web Push; la app la obtiene con `GET /push-tokens/clave-web` |
 | `VAPID_PRIVATE_KEY` | Backend | Web Push |
+| `VAPID_SUBJECT` | Backend | Contacto del emisor para Web Push (`mailto:…` o una URL) |
+
+Se leen solo al usarse: la API arranca sin ellas. Sin `RABBITMQ_URL` no se encola el push (las notificaciones quedan en la bandeja); sin VAPID se omite el push web y `GET /push-tokens/clave-web` responde `503`. Los e2e usan dobles, así que el CI no las necesita.
 
 ## Fase 5 — Reportes y permisos avanzados
 

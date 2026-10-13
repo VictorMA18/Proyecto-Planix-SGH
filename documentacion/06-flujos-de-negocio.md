@@ -92,13 +92,30 @@ La pestaña Inicio cambia según el rol del usuario en la organización activa. 
 6. Los adjuntos se listan ordenados por `orden` al consultar el detalle de la tarea.
 
 ### 8. Difusión general a la organización
-1. `ADMIN` o `SUPERVISOR` crea una notificación de tipo `SISTEMA` sin asociarla a una tarea.
+1. `ADMIN` o `SUPERVISOR` crea una notificación de tipo `AVISO` (título y mensaje, sin asociarla a una tarea); va a todos los miembros activos o solo a los elegidos (`miembroIds`); quien la envía queda como `creado_por` y también la recibe. En la app se filtra con el chip «Avisos».
 2. Se aplica el mismo mecanismo de fan-out del flujo 9.
 
 ### 9. Envío de notificaciones (fan-out)
-1. Se crea una única fila en `Notificacion` con el contenido del evento.
-2. Se crea una fila en `NotificacionUsuario` por cada destinatario.
-3. Por cada destinatario, se consultan sus `PushToken` con `activo = true`.
-4. Se despacha el push: Expo Push Service si `plataforma` es `ANDROID`/`IOS`; Web Push API si es `WEB`. El despacho se encola vía RabbitMQ (NestJS publica el mensaje; un consumer dedicado lo procesa de forma asíncrona).
-5. Si el proveedor reporta un token inválido, se actualiza `PushToken.activo = false`.
+1. Se crea una única fila en `Notificacion` con el contenido del evento y `creado_por` = quien lo provocó (la app lo muestra como autor).
+2. Se crea una fila en `NotificacionUsuario` por cada destinatario. Quien provoca el evento no la recibe (salvo en los avisos, donde quien envía guarda una copia). Si el tipo depende de una preferencia, se excluye a quien la apagó.
+3. El push se publica en la cola `push_despacho` de RabbitMQ (`NotificacionesService` → `ColaPushService`). Un consumidor (`DespachoPushController`, conectado en `main.ts` cuando existe `RABBITMQ_URL`) lo procesa de forma asíncrona.
+4. El consumidor descarta a quien tiene `push = false`, consulta los `PushToken` activos del resto y envía con Expo Push Service (`ANDROID`/`IOS`) o Web Push (`WEB`), según su `modo_alerta` (canal de Android, sonido de iOS, `silent` en la web).
+5. Si el proveedor reporta un token inválido (`DeviceNotRegistered`, o 404/410 en Web Push), se actualiza `PushToken.activo = false`.
 6. El usuario consulta su bandeja (`Notificacion` JOIN `NotificacionUsuario` por `usuario_id`) y marca `leida = true`, `leida_en = ahora` al abrir la notificación.
+7. Crear la notificación nunca hace fallar la acción que la originó: si algo falla (incluida la cola), se registra en el log.
+
+Eventos que notifican:
+
+| Evento | Tipo | Destinatarios | Preferencia |
+|---|---|---|---|
+| Crear, editar o duplicar una tarea | `TAREA_ASIGNADA` | Los asignados nuevos | — |
+| Mover el estado, completar una subtarea, comentar | `TAREA_ACTUALIZADA` | Asignados + creador | `novedades_tareas` |
+| Crear o editar una plantilla de turno | `TURNO_ASIGNADO` / `TURNO_ACTUALIZADO` | Quien entra / quien sigue (si cambió horario, días o nombre) | — |
+| Cambiar la tolerancia de entrada | `TURNO_ACTUALIZADO` | Miembros con turno | — |
+| Primera entrada de la jornada | `ASISTENCIA_REGISTRADA` | El propio miembro, solo en la bandeja (sin push) | — |
+| Aceptar una invitación o un código | `MIEMBRO_NUEVO` | ADMIN, SUPER_ADMIN y SUPERVISOR | — |
+| Difundir un aviso | `AVISO` | Todos o los elegidos, más quien envía | — |
+| 15 min antes del inicio del turno, sin entrada | `RECORDATORIO_ENTRADA` | El miembro (una vez por día) | `recordatorios_fichaje` |
+| 15 min antes del fin del turno, aún dentro | `RECORDATORIO_SALIDA` | El miembro (una vez por jornada) | `recordatorios_fichaje` |
+
+Los recordatorios los genera `RecordatoriosService` cada minuto (`@nestjs/schedule`), con la hora de `RelojService` y la zona horaria de la organización.

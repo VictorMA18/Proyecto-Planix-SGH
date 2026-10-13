@@ -279,6 +279,37 @@ paths:
         '409':
           description: El usuario intenta quitarse a sí mismo
 
+  /organizaciones/{organizacionId}/miembros/{miembroId}/resumen:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+      - name: miembroId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Miembros]
+      summary: Credencial y métricas del mes de un miembro
+      description: >
+        Turno, entrada de hoy y métricas del mes en curso (puntualidad, horas
+        trabajadas frente a la meta, variación semanal y tareas), calculadas en
+        la zona horaria de la organización. Lo ven ADMIN, SUPER_ADMIN,
+        SUPERVISOR y el propio miembro.
+      responses:
+        '200':
+          description: Resumen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumenMiembro'
+        '400':
+          description: Identificador inválido
+        '403':
+          description: Un EMPLEADO consulta el resumen de otro miembro
+        '404':
+          description: Organización inexistente, el usuario no es miembro o el miembro no existe
+
   # =====================================================================
   # INVITACIONES
   # =====================================================================
@@ -1185,22 +1216,34 @@ paths:
         Mismo patrón usado internamente al crear una tarea, pero
         disponible aquí para avisos generales no atados a una tarea
         específica (ej. anuncios administrativos).
-        Requiere rol ADMIN o SUPERVISOR.
+        Requiere rol ADMIN o SUPERVISOR. Cada destinatario la recibe como
+        tipo AVISO con `actor` = quien la envió (también quien la envía).
+        Con `miembroIds` llega solo a esos miembros activos; sin él, a todos.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [titulo]
+              required: [titulo, contenido]
               properties:
                 titulo:
                   type: string
+                  minLength: 3
+                  maxLength: 120
                 contenido:
                   type: string
-                tipo:
-                  $ref: '#/components/schemas/TipoNotificacion'
-                  default: SISTEMA
+                  minLength: 1
+                  maxLength: 500
+                miembroIds:
+                  type: array
+                  minItems: 1
+                  description: >
+                    Miembros (MiembroOrganizacion.id) que recibirán el aviso.
+                    Deben ser miembros activos de la organización (si no, 400).
+                  items:
+                    type: string
+                    format: uuid
       responses:
         '201':
           description: >
@@ -1214,12 +1257,18 @@ paths:
                   notificacionesCreadas:
                     type: integer
                     description: Cantidad de miembros activos notificados
+        '400':
+          description: Título, mensaje o destinatarios inválidos
+        '403':
+          description: El usuario no es ADMIN ni SUPERVISOR de la organización
 
   /notificaciones:
     get:
       tags: [Notificaciones]
       summary: Listar notificaciones del usuario autenticado
-      description: Más recientes primero.
+      description: >
+        Más recientes primero. Cada elemento une el evento (`notificaciones`)
+        con el estado de lectura del usuario (`notificaciones_usuario`).
       parameters:
         - name: organizacionId
           in: query
@@ -1242,6 +1291,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Notificacion'
+        '400':
+          description: Parámetros inválidos
 
   /notificaciones/{notificacionId}/leer:
     patch:
@@ -1261,6 +1312,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Notificacion'
+        '400':
+          description: Identificador inválido
+        '404':
+          description: La notificación no existe o es de otro usuario
 
   /notificaciones/leer-todas:
     patch:
@@ -1320,6 +1375,9 @@ paths:
     post:
       tags: [Notificaciones]
       summary: Registrar el identificador de notificaciones push del dispositivo/navegador actual
+      description: >
+        Si el token (o el `endpoint` de la suscripción web) ya existe, se
+        reactiva y pasa al usuario autenticado.
       requestBody:
         required: true
         content:
@@ -1353,6 +1411,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PushToken'
+        '400':
+          description: Falta el token o la suscripción que exige la plataforma
+    delete:
+      tags: [Notificaciones]
+      summary: Dejar de recibir push en este dispositivo/navegador (al cerrar sesión)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Uno de los dos, según la plataforma.
+              properties:
+                expoPushToken:
+                  type: string
+                endpoint:
+                  type: string
+                  description: endpoint de la suscripción Web Push
+      responses:
+        '204':
+          description: Token desactivado (o no existía para este usuario)
+        '400':
+          description: No se indicó ni el token ni el endpoint
+
+  /push-tokens/clave-web:
+    get:
+      tags: [Notificaciones]
+      summary: Clave pública VAPID para suscribir el navegador a Web Push
+      responses:
+        '200':
+          description: Clave pública
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  clavePublica:
+                    type: string
+        '503':
+          description: Web Push no está configurado en el servidor
 
   # =====================================================================
   # REPORTES
@@ -1471,8 +1569,10 @@ components:
       description: >
         La app agrupa los tipos en categorías: Turnos (TURNO_ASIGNADO,
         TURNO_ACTUALIZADO), Tareas (TAREA_ASIGNADA, TAREA_ACTUALIZADA),
-        Asistencia (ASISTENCIA_REGISTRADA, QR_DISPONIBLE, RECORDATORIO_SALIDA)
-        y Sistema (MIEMBRO_NUEVO, SISTEMA).
+        Asistencia (ASISTENCIA_REGISTRADA, QR_DISPONIBLE, RECORDATORIO_ENTRADA,
+        RECORDATORIO_SALIDA),
+        Avisos (AVISO, los difundidos por ADMIN o SUPERVISOR) y Sistema
+        (MIEMBRO_NUEVO, SISTEMA).
       enum:
         - TURNO_ASIGNADO
         - TURNO_ACTUALIZADO
@@ -1480,7 +1580,9 @@ components:
         - TAREA_ACTUALIZADA
         - ASISTENCIA_REGISTRADA
         - QR_DISPONIBLE
+        - RECORDATORIO_ENTRADA
         - RECORDATORIO_SALIDA
+        - AVISO
         - MIEMBRO_NUEVO
         - SISTEMA
 
@@ -1712,6 +1814,17 @@ components:
           $ref: '#/components/schemas/RolMiembro'
         estado:
           $ref: '#/components/schemas/EstadoMiembro'
+        turno:
+          type: string
+          nullable: true
+          description: Nombre de la plantilla de turno asignada
+        enTurnoDesde:
+          type: string
+          format: date-time
+          nullable: true
+          description: >
+            Si está dentro ahora (jornada de hoy o de ayer abierta), desde
+            cuándo: la hora de su última entrada.
 
     PaginaEquipo:
       type: object
@@ -2154,6 +2267,14 @@ components:
             objetivoMin:
               type: integer
               description: Duración del turno en minutos
+        plantilla:
+          description: >
+            Plantilla de turno asignada al miembro (días, horario y equipo),
+            para que cualquier rol vea el detalle de su turno sin acceder a
+            la configuración de turnos (solo ADMIN). `null` si no tiene una.
+          allOf:
+            - $ref: '#/components/schemas/PlantillaTurno'
+          nullable: true
         jornada:
           allOf:
             - $ref: '#/components/schemas/JornadaAsistencia'
@@ -2581,6 +2702,60 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    ResumenMiembro:
+      type: object
+      properties:
+        periodo:
+          type: string
+          description: Mes en curso, `YYYY-MM`
+        turno:
+          type: object
+          nullable: true
+          properties:
+            nombre:
+              type: string
+            horaInicio:
+              type: string
+              example: '08:00'
+            horaFin:
+              type: string
+              example: '17:00'
+        entradaHoy:
+          type: string
+          format: date-time
+          nullable: true
+          description: Primera entrada de la jornada de hoy
+        puntualidad:
+          type: number
+          nullable: true
+          description: >
+            Porcentaje (0-100) de jornadas del mes con puntualidad evaluada que
+            fueron puntuales; null si no hay ninguna.
+        horas:
+          type: object
+          properties:
+            trabajadas:
+              type: number
+              description: Horas trabajadas en el mes (1 decimal)
+            meta:
+              type: number
+              description: >
+                Duración del turno por cada día aplicable del mes (0 si no
+                tiene turno)
+            variacionSemana:
+              type: number
+              description: >
+                Horas de esta semana menos las de la anterior hasta el mismo
+                día de la semana
+        tareas:
+          type: object
+          properties:
+            completadas:
+              type: integer
+            total:
+              type: integer
+              description: Tareas asignadas que empiezan en el mes
 
     ReporteAsistencia:
       type: object
