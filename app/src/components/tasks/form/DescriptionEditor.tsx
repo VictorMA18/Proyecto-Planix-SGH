@@ -1,71 +1,155 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Text, TextInput } from 'react-native';
 
 import { ThemeColors } from '@/constants/theme';
+import {
+  applyTextChange,
+  attrsAt,
+  docText,
+  fromMarkdown,
+  inBullet,
+  removeLink,
+  richFontFamily,
+  setLink,
+  toggleBullet,
+  toggleMark,
+  toMarkdown,
+  toRuns,
+  type RichAttrs,
+  type RichDoc,
+  type RichMark,
+} from '@/utils/rich-text';
 
 import { TaskSection } from '../detail/TaskSection';
+import { DescriptionToolbar } from './DescriptionToolbar';
 import { FieldError } from './FieldLabel';
-
-type Format = 'bold' | 'italic' | 'list' | 'link';
-
-const TOOLS: { format: Format; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
-  { format: 'bold', icon: 'text', label: 'Negrita' },
-  { format: 'italic', icon: 'text-outline', label: 'Cursiva' },
-  { format: 'list', icon: 'list', label: 'Lista' },
-  { format: 'link', icon: 'link', label: 'Enlace' },
-];
-
-/** Aplica un formato Markdown a la selección (o inserta un ejemplo si no hay selección). */
-function applyFormat(text: string, start: number, end: number, format: Format): string {
-  const selected = text.slice(start, end);
-  const wrap = (left: string, right: string, fallback: string) => {
-    const inner = selected || fallback;
-    return text.slice(0, start) + left + inner + right + text.slice(end);
-  };
-  if (format === 'bold') return wrap('**', '**', 'texto');
-  if (format === 'italic') return wrap('_', '_', 'texto');
-  if (format === 'link') return wrap('[', '](https://)', selected || 'enlace');
-  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
-  const prefix = lineStart === start && start === text.length && text.length > 0 && !text.endsWith('\n') ? '\n- ' : '- ';
-  return text.slice(0, lineStart) + prefix + text.slice(lineStart);
-}
+import { LinkModal } from './LinkModal';
 
 interface DescriptionEditorProps {
+  /** Descripción en Markdown básico (lo que se guarda). */
   value: string;
-  onChange: (text: string) => void;
+  onChange: (markdown: string) => void;
   error?: string;
 }
 
-/** Descripción con una barra simple que escribe Markdown (negrita, cursiva, listas y enlaces). */
+interface Selection {
+  start: number;
+  end: number;
+}
+
+const MAX_HISTORY = 50;
+/** Lo escrito sin pausas de más de este tiempo se deshace de una vez. */
+const TYPING_GROUP_MS = 1000;
+
+/**
+ * Descripción con estilo visible (negrita, cursiva, viñetas y enlaces) en lugar de Markdown: el
+ * TextInput pinta el texto con `Text` anidados y se guarda como Markdown (`utils/rich-text.ts`).
+ * La versión web (`DescriptionEditor.web.tsx`) usa un área editable del navegador.
+ */
 export const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ value, onChange, error }) => {
-  // Solo se lee la selección: controlarla hace saltar el cursor en Android.
-  const [selection, setSelection] = useState({ start: value.length, end: value.length });
+  const inputRef = useRef<TextInput>(null);
+  const [doc, setDoc] = useState<RichDoc>(() => fromMarkdown(value));
+  // La selección solo se lee: controlarla hace saltar el cursor en Android.
+  const [selection, setSelection] = useState<Selection>(() => {
+    const end = docText(fromMarkdown(value)).length;
+    return { start: end, end };
+  });
+  /** Marcas elegidas en la barra sin selección: se aplican a lo próximo que se escriba. */
+  const [typing, setTyping] = useState<RichAttrs | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [history, setHistory] = useState<{ doc: RichDoc; selection: Selection }[]>([]);
+  const lastEmitted = useRef(value);
+  const lastTypingAt = useRef(0);
+
+  // Si el formulario cambia la descripción desde fuera (p. ej. al cargar la tarea), se vuelve a leer.
+  useEffect(() => {
+    if (value !== lastEmitted.current) {
+      lastEmitted.current = value;
+      setDoc(fromMarkdown(value));
+      setHistory([]);
+    }
+  }, [value]);
+
+  const moveCursor = (next: Selection) => {
+    setSelection(next);
+    requestAnimationFrame(() => inputRef.current?.setSelection(next.start, next.end));
+  };
+
+  const commit = (next: RichDoc, cursor?: Selection) => {
+    setDoc(next);
+    const markdown = toMarkdown(next);
+    lastEmitted.current = markdown;
+    onChange(markdown);
+    if (cursor) moveCursor(cursor);
+  };
+
+  const remember = () => setHistory((stack) => [...stack.slice(-(MAX_HISTORY - 1)), { doc, selection }]);
+
+  const handleChangeText = (text: string) => {
+    const now = Date.now();
+    if (now - lastTypingAt.current > TYPING_GROUP_MS) remember();
+    lastTypingAt.current = now;
+
+    const change = applyTextChange(doc, text, typing);
+    if (typing && text.length > docText(doc).length) setTyping(null);
+    commit(change.doc, change.cursor === undefined ? undefined : { start: change.cursor, end: change.cursor });
+  };
+
+  // Las acciones de la barra son un paso de deshacer cada una.
+  const format = (next: RichDoc, cursor?: Selection) => {
+    remember();
+    lastTypingAt.current = 0;
+    commit(next, cursor);
+  };
+
+  const current = attrsAt(doc, selection.start, selection.end);
+  const collapsed = selection.start === selection.end;
+
+  const toggle = (mark: RichMark) => {
+    if (collapsed) {
+      const base = typing ?? { b: current.b, i: current.i };
+      setTyping({ ...base, [mark]: !base[mark] });
+      inputRef.current?.focus();
+    } else {
+      format(toggleMark(doc, selection.start, selection.end, mark));
+    }
+  };
+
+  const undo = () => {
+    const last = history[history.length - 1];
+    if (!last) return;
+    setHistory((stack) => stack.slice(0, -1));
+    setTyping(null);
+    lastTypingAt.current = 0;
+    commit(last.doc, last.selection);
+  };
+
+  const state = {
+    bold: (typing ?? current).b,
+    italic: (typing ?? current).i,
+    list: inBullet(doc, selection.start),
+    link: current.link,
+    canUndo: history.length > 0,
+  };
 
   return (
-    <TaskSection icon="create-outline" title="Descripción" trailing={<Text className="text-[11px] text-neutral-muted">Markdown habilitado</Text>}>
-      <View className="flex-row gap-1">
-        {TOOLS.map((tool) => (
-          <Pressable
-            key={tool.format}
-            accessibilityRole="button"
-            accessibilityLabel={tool.label}
-            onPress={() => {
-              onChange(applyFormat(value, selection.start, selection.end, tool.format));
-            }}
-            className="w-11 h-11 rounded-xl items-center justify-center active:bg-tertiary"
-          >
-            {tool.format === 'bold' ? (
-              <Text className="text-base font-extrabold text-neutral">B</Text>
-            ) : tool.format === 'italic' ? (
-              <Text className="text-base italic font-semibold text-neutral">I</Text>
-            ) : (
-              <Ionicons name={tool.icon} size={18} color={ThemeColors.neutral} />
-            )}
-          </Pressable>
-        ))}
-      </View>
+    <TaskSection icon="create-outline" title="Descripción">
+      <DescriptionToolbar
+        state={state}
+        onBold={() => toggle('b')}
+        onItalic={() => toggle('i')}
+        onList={() => {
+          const result = toggleBullet(doc, selection.start, selection.end);
+          format(result.doc, { start: result.start, end: result.end });
+        }}
+        onLink={() => {
+          if (current.link) format(removeLink(doc, selection.start, selection.end));
+          else setLinkOpen(true);
+        }}
+        onUndo={undo}
+      />
       <TextInput
+        ref={inputRef}
         accessibilityLabel="Descripción de la tarea"
         multiline
         textAlignVertical="top"
@@ -73,12 +157,39 @@ export const DescriptionEditor: React.FC<DescriptionEditorProps> = ({ value, onC
         className={`bg-inputBg border rounded-2xl p-4 text-sm leading-6 text-neutral ${error ? 'border-red-500' : 'border-borderBg'}`}
         placeholder="Explica qué hay que hacer, con el detalle necesario…"
         placeholderTextColor={ThemeColors.mutedText}
-        value={value}
         maxLength={2000}
-        onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}
-        onChangeText={onChange}
-      />
+        onSelectionChange={(event) => {
+          const next = event.nativeEvent.selection;
+          setSelection(next);
+          if (next.start !== next.end) setTyping(null);
+        }}
+        onChangeText={handleChangeText}
+      >
+        {toRuns(doc).map((run, index) => (
+          <Text
+            key={index}
+            style={{
+              fontFamily: richFontFamily(run.b, run.i),
+              color: run.href ? ThemeColors.primary : ThemeColors.neutral,
+              textDecorationLine: run.href ? 'underline' : 'none',
+            }}
+          >
+            {run.text}
+          </Text>
+        ))}
+      </TextInput>
       <FieldError message={error} />
+
+      <LinkModal
+        visible={linkOpen}
+        askLabel={collapsed}
+        onCancel={() => setLinkOpen(false)}
+        onConfirm={({ url, label }) => {
+          setLinkOpen(false);
+          const change = setLink(doc, selection.start, selection.end, url, label);
+          format(change.doc, change.cursor === undefined ? undefined : { start: change.cursor, end: change.cursor });
+        }}
+      />
     </TaskSection>
   );
 };

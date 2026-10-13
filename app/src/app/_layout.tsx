@@ -16,6 +16,8 @@ import {
   DMSans_600SemiBold,
   DMSans_700Bold,
   DMSans_800ExtraBold,
+  DMSans_400Regular_Italic,
+  DMSans_700Bold_Italic,
 } from '@expo-google-fonts/dm-sans';
 
 import { QueryProvider } from '../providers/QueryProvider';
@@ -78,6 +80,9 @@ export default function RootLayout() {
     DMSans_600SemiBold,
     DMSans_700Bold,
     DMSans_800ExtraBold,
+    // Cursivas de la descripción de las tareas (editor y detalle).
+    DMSans_400Regular_Italic,
+    DMSans_700Bold_Italic,
     'DM Sans': DMSans_400Regular,
   });
 

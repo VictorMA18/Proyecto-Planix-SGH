@@ -1,26 +1,28 @@
 import React from 'react';
 import { Linking, Text, View } from 'react-native';
 
-// Markdown básico de las descripciones: **negrita**, _cursiva_, [enlaces](https://…) y listas con «- ».
+import { ThemeColors } from '@/constants/theme';
+import { richFontFamily } from '@/utils/rich-text';
+
+// Markdown básico de las descripciones: **negrita**, _cursiva_ (combinables), [enlaces](https://…) y
+// listas con «- ». Es lo que guarda el editor de la descripción (`utils/rich-text.ts`).
 const INLINE = /(\*\*[^*]+\*\*|_[^_]+_|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g;
 
-function Inline({ text }: { text: string }) {
+interface Marks {
+  b: boolean;
+  i: boolean;
+}
+
+function Inline({ text, marks = { b: false, i: false } }: { text: string; marks?: Marks }) {
   return (
     <>
       {text.split(INLINE).map((part, i) => {
-        if (part.startsWith('**') && part.endsWith('**')) {
-          return (
-            <Text key={i} className="font-bold text-neutral">
-              {part.slice(2, -2)}
-            </Text>
-          );
+        if (!part) return null;
+        if (part.length > 4 && part.startsWith('**') && part.endsWith('**')) {
+          return <Inline key={i} text={part.slice(2, -2)} marks={{ ...marks, b: true }} />;
         }
-        if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
-          return (
-            <Text key={i} className="italic">
-              {part.slice(1, -1)}
-            </Text>
-          );
+        if (part.length > 2 && part.startsWith('_') && part.endsWith('_')) {
+          return <Inline key={i} text={part.slice(1, -1)} marks={{ ...marks, i: true }} />;
         }
         const link = /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/.exec(part);
         if (link) {
@@ -29,13 +31,19 @@ function Inline({ text }: { text: string }) {
               key={i}
               accessibilityRole="link"
               onPress={() => Linking.openURL(link[2])}
-              className="font-semibold text-primary underline"
+              style={{ fontFamily: richFontFamily(marks.b, marks.i), color: ThemeColors.primary }}
+              className="underline"
             >
               {link[1]}
             </Text>
           );
         }
-        return part;
+        if (!marks.b && !marks.i) return part;
+        return (
+          <Text key={i} style={{ fontFamily: richFontFamily(marks.b, marks.i), color: marks.b ? ThemeColors.neutral : undefined }}>
+            {part}
+          </Text>
+        );
       })}
     </>
   );

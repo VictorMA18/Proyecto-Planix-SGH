@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-// Esquemas de la pestaña «Tareas» (Fase 3). Coinciden con los contratos proyectados TareaCalendario,
+// Esquemas de la pestaña «Tareas» (Fase 3). Coinciden con los contratos TareaCalendario,
 // TareaDetalle, Subtarea, ComentarioTarea, ActividadTarea, PrioridadTarea y EstadoTarea de
-// api/openapi.yaml. Por ahora los datos son de ejemplo (`src/mocks/tasks.ts`).
+// api/openapi.yaml.
 
 /** ALTA se muestra como «Alta prioridad» (urgente) y MEDIA como «Normal». */
 export const taskPrioritySchema = z.enum(['ALTA', 'MEDIA', 'BAJA']);
@@ -131,6 +131,18 @@ export const taskFormSchema = z
     message: 'La hora de fin debe ser posterior a la de inicio.',
   });
 export type TaskFormInput = z.infer<typeof taskFormSchema>;
+
+/** Enlace de la descripción. Sin `https://`, se agrega; sin texto, se muestra la dirección. */
+export const descriptionLinkSchema = z.object({
+  label: z.string().trim().max(120, 'Máximo 120 caracteres.'),
+  url: z
+    .string()
+    .trim()
+    .min(1, 'Escribe la dirección del enlace.')
+    .transform((url) => (/^https?:\/\//i.test(url) ? url : `https://${url}`))
+    .pipe(z.string().regex(/^https?:\/\/[^\s)]+\.[^\s)]+$/, 'Escribe una dirección válida, p. ej. www.ejemplo.com.')),
+});
+export type DescriptionLinkInput = z.input<typeof descriptionLinkSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // Filtros de la pantalla (estado de UI en `useTasksStore`)
