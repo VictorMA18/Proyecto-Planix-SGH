@@ -16,3 +16,9 @@ web-build/
 
 # Sistema
 .DS_Store
+
+# Archivo de Servicios de Google
+app/google-services.json
+
+# Clave privada de la cuenta de servicio de Firebase (FCM V1): solo se sube a EAS
+*firebase-adminsdk*.json

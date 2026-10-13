@@ -14,6 +14,7 @@ import { useGoBack } from '@/hooks/use-go-back';
 import { useProfileImage } from '@/hooks/use-profile-image';
 import { DEFAULT_TAB_HREF } from '@/constants/navigation';
 import { useActiveMembership } from '@/hooks/use-active-membership';
+import { useUnregisterPushDevice } from '@/services/notifications';
 import { useMemberships } from '@/services/organizations';
 
 export default function ProfileScreen() {
@@ -26,6 +27,7 @@ export default function ProfileScreen() {
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const queryClient = useQueryClient();
+  const unregisterPush = useUnregisterPushDevice();
   const membershipsQuery = useMemberships();
   const memberships = membershipsQuery.data;
   const { activeOrganizationId, setActiveOrganization } = useActiveMembership(memberships);
@@ -33,6 +35,8 @@ export default function ProfileScreen() {
   const handleSignOut = async () => {
     try {
       setIsSigningOut(true);
+      // Este dispositivo deja de recibir push de la cuenta (necesita la sesión, va antes de salir).
+      await unregisterPush();
       await signOut();
       // Evita que los datos de esta cuenta queden en caché para la siguiente sesión.
       queryClient.clear();

@@ -1,6 +1,11 @@
 import { Stack } from 'expo-router';
 
+import { usePushNotifications } from '@/hooks/use-push-notifications';
+
 export default function AppLayout() {
+  // Push del dispositivo o navegador: registro, avisos en primer plano y apertura al tocarlos.
+  usePushNotifications();
+
   return (
     <Stack
       screenOptions={{
@@ -17,6 +22,7 @@ export default function AppLayout() {
       <Stack.Screen name="tarea/[tareaId]/editar" />
       <Stack.Screen name="notificaciones" />
       <Stack.Screen name="historial" />
+      <Stack.Screen name="mi-turno" />
       <Stack.Screen name="reportes" />
       <Stack.Screen name="turnos/index" />
       <Stack.Screen name="turnos/nuevo" />
