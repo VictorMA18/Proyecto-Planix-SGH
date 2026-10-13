@@ -8,7 +8,10 @@ import {
 import { Usuario } from '@prisma/client';
 import { DIAS_VIGENCIA_INVITACION } from '../../../common/constants/invitaciones.constants';
 import { normalizarCodigo } from '../../../common/utils/codigo.util';
+import { ROLES_SUPERVISION } from '../../../common/constants/notificaciones.constants';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificacionesService } from '../../notificaciones/services/notificaciones.service';
+import { miembroNuevo } from '../../notificaciones/utils/mensajes.util';
 import { MiembroResponseDto } from '../../organizaciones/dto/miembro-response.dto';
 import { AccesoOrganizacionService } from '../../organizaciones/services/acceso-organizacion.service';
 import { MiembrosService } from '../../organizaciones/services/miembros.service';
@@ -27,6 +30,7 @@ export class InvitacionesService {
     private readonly acceso: AccesoOrganizacionService,
     private readonly miembros: MiembrosService,
     private readonly codigos: CodigosInvitacionService,
+    private readonly notificaciones: NotificacionesService,
   ) {}
 
   async crear(
@@ -113,7 +117,11 @@ export class InvitacionesService {
     const invitacion = await this.prisma.invitacion.findUnique({
       where: { token },
     });
-    if (!invitacion) return this.codigos.canjear(usuario, token);
+    if (!invitacion) {
+      const canjeado = await this.codigos.canjear(usuario, token);
+      await this.avisarIngreso(usuario, canjeado.id);
+      return canjeado;
+    }
 
     if (invitacion.estado !== 'PENDIENTE') {
       throw new GoneException('La invitación ya fue utilizada o cancelada');
@@ -144,6 +152,25 @@ export class InvitacionesService {
       });
       return activado;
     });
+    await this.avisarIngreso(usuario, miembro.id);
     return MiembroResponseDto.desde(miembro);
+  }
+
+  /** «Nuevo miembro» a ADMIN, SUPER_ADMIN y SUPERVISOR de la organización (sin el recién llegado). */
+  private async avisarIngreso(usuario: Usuario, miembroId: string) {
+    const miembro = await this.prisma.miembroOrganizacion.findUniqueOrThrow({
+      where: { id: miembroId },
+    });
+    await this.notificaciones.notificar({
+      organizacionId: miembro.organizacionId,
+      tipo: 'MIEMBRO_NUEVO',
+      ...miembroNuevo(usuario.nombre, miembro.rol),
+      referenciaId: miembro.id,
+      actorId: usuario.id,
+      usuarioIds: await this.notificaciones.usuariosConRol(
+        miembro.organizacionId,
+        { in: ROLES_SUPERVISION },
+      ),
+    });
   }
 }

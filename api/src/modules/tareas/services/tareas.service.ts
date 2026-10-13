@@ -14,6 +14,15 @@ import {
 } from '../../../common/utils/zona-horaria.util';
 import { CloudinaryService } from '../../../cloudinary/cloudinary.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificacionesService } from '../../notificaciones/services/notificaciones.service';
+import {
+  comentarioTarea,
+  destinatariosTarea,
+  type MensajeNotificacion,
+  subtareaCompletada,
+  tareaAsignada,
+  tareaMovida,
+} from '../../notificaciones/utils/mensajes.util';
 import { AccesoOrganizacionService } from '../../organizaciones/services/acceso-organizacion.service';
 import {
   ActividadResponseDto,
@@ -50,6 +59,7 @@ export class TareasService {
     private readonly actividad: ActividadService,
     private readonly cloudinary: CloudinaryService,
     private readonly reloj: RelojService,
+    private readonly notificaciones: NotificacionesService,
   ) {}
 
   // ------------------------------------------------------------------ lectura
@@ -208,7 +218,7 @@ export class TareasService {
     const organizacion = await this.organizacion(organizacionId);
     const fechas = this.fechas(dto, organizacion);
 
-    const id = await this.prisma.$transaction(async (tx) => {
+    const { id, usuarios } = await this.prisma.$transaction(async (tx) => {
       const asignados = await this.resolverAsignados(
         tx,
         organizacionId,
@@ -238,8 +248,13 @@ export class TareasService {
         'CREADA',
         'creó la tarea',
       );
-      return tarea.id;
+      return { id: tarea.id, usuarios: asignados.map((a) => a.usuarioId) };
     });
+    await this.avisarAsignacion(
+      usuario,
+      { id, organizacionId, titulo: dto.titulo },
+      usuarios,
+    );
     return this.detalle(id, usuario.id);
   }
 
@@ -265,7 +280,8 @@ export class TareasService {
         'Alguna subtarea no pertenece a esta tarea.',
       );
 
-    await this.prisma.$transaction(async (tx) => {
+    const antes = new Set(actual.asignaciones.map((a) => a.usuarioId));
+    const nuevos = await this.prisma.$transaction(async (tx) => {
       const asignados = await this.resolverAsignados(
         tx,
         actual.organizacionId,
@@ -311,9 +327,9 @@ export class TareasService {
         finales.push(fila);
       }
 
-      const antes = this.foto(actual);
+      const foto = this.foto(actual);
       const despues: FotoTarea = {
-        ...antes,
+        ...foto,
         titulo: campos.titulo,
         estado: campos.estado,
         prioridad: campos.prioridad,
@@ -329,9 +345,19 @@ export class TareasService {
         tx,
         tareaId,
         usuario.id,
-        describirCambios(antes, despues, usuario.id, organizacion.zonaHoraria),
+        describirCambios(foto, despues, usuario.id, organizacion.zonaHoraria),
       );
+      return usuarios.filter((id) => !antes.has(id));
     });
+    await this.avisarAsignacion(
+      usuario,
+      {
+        id: tareaId,
+        organizacionId: actual.organizacionId,
+        titulo: dto.titulo,
+      },
+      nuevos,
+    );
     return this.detalle(tareaId, usuario.id);
   }
 
@@ -385,7 +411,13 @@ export class TareasService {
       );
       return copia.id;
     });
-    return this.detalle(id, usuario.id);
+    const copia = await this.detalle(id, usuario.id);
+    await this.avisarAsignacion(
+      usuario,
+      { id, organizacionId: original.organizacionId, titulo: copia.titulo },
+      original.asignaciones.map((a) => a.usuarioId),
+    );
+    return copia;
   }
 
   /** Borra la tarea (comentarios, subtareas y actividad en cascada) y luego sus archivos en Cloudinary. */
@@ -430,6 +462,11 @@ export class TareasService {
           `movió la tarea a ${ESTADO_TAREA_TEXTO[estado]}`,
         );
       });
+      await this.avisarNovedad(
+        usuario,
+        tarea,
+        tareaMovida(usuario.nombre, tarea.titulo, estado),
+      );
     }
     return this.detalle(tareaId, usuario.id);
   }
@@ -460,6 +497,13 @@ export class TareasService {
       }
       return fila;
     });
+    if (completada && !subtarea.completada) {
+      await this.avisarNovedad(
+        usuario,
+        tarea,
+        subtareaCompletada(usuario.nombre, subtarea.titulo, tarea.titulo),
+      );
+    }
     return {
       id: actualizada.id,
       titulo: actualizada.titulo,
@@ -487,10 +531,54 @@ export class TareasService {
       );
       return fila;
     });
+    await this.avisarNovedad(
+      usuario,
+      tarea,
+      comentarioTarea(usuario.nombre, tarea.titulo, texto),
+    );
     return ComentarioResponseDto.desde(
       comentario,
       await this.miembrosPorUsuario(tarea.organizacionId),
     );
+  }
+
+  // ------------------------------------------------------------------ notificaciones
+
+  /** «Nueva tarea asignada» a quienes se acaban de asignar (sin quien asignó). */
+  private async avisarAsignacion(
+    actor: Usuario,
+    tarea: { id: string; organizacionId: string; titulo: string },
+    usuarioIds: string[],
+  ) {
+    await this.notificaciones.notificar({
+      organizacionId: tarea.organizacionId,
+      tipo: 'TAREA_ASIGNADA',
+      ...tareaAsignada(actor.nombre, tarea.titulo),
+      referenciaId: tarea.id,
+      actorId: actor.id,
+      usuarioIds,
+    });
+  }
+
+  /** Novedad (estado, subtarea o comentario) a asignados y creador, salvo quien la hizo. */
+  private async avisarNovedad(
+    actor: Usuario,
+    tarea: TareaCompleta,
+    mensaje: MensajeNotificacion,
+  ) {
+    await this.notificaciones.notificar({
+      organizacionId: tarea.organizacionId,
+      tipo: 'TAREA_ACTUALIZADA',
+      ...mensaje,
+      referenciaId: tarea.id,
+      actorId: actor.id,
+      usuarioIds: destinatariosTarea(
+        tarea.asignaciones.map((a) => a.usuarioId),
+        tarea.creadoPor,
+        actor.id,
+      ),
+      filtro: 'novedadesTareas',
+    });
   }
 
   // ------------------------------------------------------------------ apoyo

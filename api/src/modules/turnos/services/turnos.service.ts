@@ -4,8 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma, Usuario } from '@prisma/client';
-import { aTimeDb } from '../../../common/utils/hora.util';
+import { aTimeDb, horaDeTimeDb } from '../../../common/utils/hora.util';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { NotificacionesService } from '../../notificaciones/services/notificaciones.service';
+import {
+  toleranciaActualizada,
+  turnoActualizado,
+  turnoAsignado,
+} from '../../notificaciones/utils/mensajes.util';
 import { AccesoOrganizacionService } from '../../organizaciones/services/acceso-organizacion.service';
 import {
   ConfiguracionTurnosResponseDto,
@@ -27,6 +33,7 @@ export class TurnosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly acceso: AccesoOrganizacionService,
+    private readonly notificaciones: NotificacionesService,
   ) {}
 
   async configuracion(
@@ -53,6 +60,7 @@ export class TurnosService {
       await this.asignar(tx, organizacionId, plantilla.id, dto.miembroIds);
       return plantilla.id;
     });
+    await this.avisar(usuario, organizacionId, id, dto, dto.miembroIds, []);
     return this.leerPlantilla(organizacionId, id);
   }
 
@@ -64,7 +72,11 @@ export class TurnosService {
   ): Promise<PlantillaTurnoResponseDto> {
     await this.acceso.exigirAdmin(usuario.id, organizacionId);
     this.validarHorario(dto);
-    await this.exigirPlantilla(organizacionId, turnoId);
+    const anterior = await this.exigirPlantilla(organizacionId, turnoId);
+    const previos = await this.prisma.miembroOrganizacion.findMany({
+      where: { organizacionId, estado: 'ACTIVO', plantillaTurnoId: turnoId },
+      select: { id: true },
+    });
 
     await this.prisma.$transaction(async (tx) => {
       await this.validarMiembros(tx, organizacionId, dto.miembroIds);
@@ -74,6 +86,22 @@ export class TurnosService {
       });
       await this.asignar(tx, organizacionId, turnoId, dto.miembroIds);
     });
+
+    const yaEstaban = new Set(previos.map((m) => m.id));
+    const nuevo = this.datos(dto);
+    const cambioHorario =
+      anterior.nombre !== nuevo.nombre ||
+      horaDeTimeDb(anterior.horaInicio) !== dto.horaInicio ||
+      horaDeTimeDb(anterior.horaFin) !== dto.horaFin ||
+      anterior.dias.join() !== nuevo.dias.join();
+    await this.avisar(
+      usuario,
+      organizacionId,
+      turnoId,
+      dto,
+      dto.miembroIds.filter((id) => !yaEstaban.has(id)),
+      cambioHorario ? dto.miembroIds.filter((id) => yaEstaban.has(id)) : [],
+    );
     return this.leerPlantilla(organizacionId, turnoId);
   }
 
@@ -94,11 +122,75 @@ export class TurnosService {
     { toleranciaMin }: ToleranciaDto,
   ): Promise<ConfiguracionTurnosResponseDto> {
     await this.acceso.exigirAdmin(usuario.id, organizacionId);
+    const antes = await this.prisma.organizacion.findUniqueOrThrow({
+      where: { id: organizacionId },
+    });
     await this.prisma.organizacion.update({
       where: { id: organizacionId },
       data: { toleranciaEntradaMin: toleranciaMin },
     });
+    if (antes.toleranciaEntradaMin !== toleranciaMin) {
+      // A quienes tienen turno: la tolerancia cambia cuándo su entrada cuenta como puntual.
+      const conTurno = await this.prisma.miembroOrganizacion.findMany({
+        where: {
+          organizacionId,
+          estado: 'ACTIVO',
+          plantillaTurnoId: { not: null },
+        },
+        select: { usuarioId: true },
+      });
+      await this.notificaciones.notificar({
+        organizacionId,
+        tipo: 'TURNO_ACTUALIZADO',
+        ...toleranciaActualizada(usuario.nombre, toleranciaMin),
+        actorId: usuario.id,
+        usuarioIds: conTurno.map((m) => m.usuarioId),
+      });
+    }
     return this.leerConfiguracion(organizacionId);
+  }
+
+  /** «Nuevo turno asignado» a quienes entran y «Cambio en tu turno» a quienes siguen (si cambió). */
+  private async avisar(
+    actor: Usuario,
+    organizacionId: string,
+    plantillaId: string,
+    dto: PlantillaTurnoDto,
+    entran: string[],
+    siguen: string[],
+  ) {
+    const usuariosDe = async (miembroIds: string[]) =>
+      miembroIds.length === 0
+        ? []
+        : (
+            await this.prisma.miembroOrganizacion.findMany({
+              where: { id: { in: miembroIds } },
+              select: { usuarioId: true },
+            })
+          ).map((m) => m.usuarioId);
+    const turno = {
+      nombre: dto.nombre,
+      horaInicio: dto.horaInicio,
+      horaFin: dto.horaFin,
+      dias: dto.dias,
+    };
+    const comun = {
+      organizacionId,
+      referenciaId: plantillaId,
+      actorId: actor.id,
+    };
+    await this.notificaciones.notificar({
+      ...comun,
+      tipo: 'TURNO_ASIGNADO',
+      ...turnoAsignado(actor.nombre, turno),
+      usuarioIds: await usuariosDe(entran),
+    });
+    await this.notificaciones.notificar({
+      ...comun,
+      tipo: 'TURNO_ACTUALIZADO',
+      ...turnoActualizado(actor.nombre, turno),
+      usuarioIds: await usuariosDe(siguen),
+    });
   }
 
   private validarHorario(dto: PlantillaTurnoDto) {

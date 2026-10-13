@@ -10,16 +10,21 @@ import {
   comoFechaDb,
   desdeFechaDb,
   diasEntre,
+  minutosLocales,
 } from '../../../common/utils/zona-horaria.util';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { horaDeMinutos } from '../../../common/utils/hora.util';
+import { NotificacionesService } from '../../notificaciones/services/notificaciones.service';
+import { asistenciaRegistrada } from '../../notificaciones/utils/mensajes.util';
 import { QrService } from '../../qr/services/qr.service';
+import { PlantillaTurnoResponseDto } from '../../turnos/dto/configuracion-turnos-response.dto';
 import { AsistenciaHoyResponseDto } from '../dto/asistencia-hoy-response.dto';
 import { HistorialQueryDto } from '../dto/historial-query.dto';
 import {
   JornadaResponseDto,
   PaginaJornadasResponseDto,
 } from '../dto/jornada-response.dto';
-import { JornadasService } from './jornadas.service';
+import { JornadasService, type ContextoAsistencia } from './jornadas.service';
 
 const YA_DENTRO =
   'Ya tienes una entrada abierta. Registra tu salida antes de volver a entrar.';
@@ -40,6 +45,7 @@ export class AsistenciaService {
     private readonly prisma: PrismaService,
     private readonly qr: QrService,
     private readonly jornadas: JornadasService,
+    private readonly notificaciones: NotificacionesService,
   ) {}
 
   async registrarEntrada(
@@ -105,6 +111,22 @@ export class AsistenciaService {
         },
         ...conMovimientos,
       });
+      // Confirmación en la bandeja, sin push: la persona acaba de escanear el QR.
+      await this.notificaciones.notificar({
+        organizacionId: organizacion.id,
+        tipo: 'ASISTENCIA_REGISTRADA',
+        ...asistenciaRegistrada(),
+        referenciaId: jornada.id,
+        datos:
+          turno && puntualidad
+            ? {
+                puntual: puntualidad.puntual,
+                turno: `${turno.nombre} (${horaDeMinutos(minutosLocales(turno.inicio, organizacion.zonaHoraria))} - ${horaDeMinutos(minutosLocales(turno.fin, organizacion.zonaHoraria))})`,
+              }
+            : null,
+        usuarioIds: [usuario.id],
+        push: false,
+      });
       return JornadaResponseDto.desde(jornada, ahora);
     } catch (err) {
       if (esUnicoDuplicado(err)) throw new BadRequestException(YA_DENTRO);
@@ -157,9 +179,29 @@ export class AsistenciaService {
       fecha: ctx.fecha,
       toleranciaMin: ctx.organizacion.toleranciaEntradaMin,
       turno: this.jornadas.turnoVigente(ctx, jornada),
+      plantilla: await this.plantillaDelMiembro(ctx),
       jornada: jornada ? JornadaResponseDto.desde(jornada, ctx.ahora) : null,
       calculadoEn: ctx.ahora,
     });
+  }
+
+  /** Plantilla asignada con su equipo activo (el mismo formato que la configuración de turnos). */
+  private async plantillaDelMiembro({
+    membresia,
+    organizacion,
+  }: ContextoAsistencia): Promise<PlantillaTurnoResponseDto | null> {
+    const plantilla = membresia.plantillaTurno;
+    if (!plantilla) return null;
+    const miembros = await this.prisma.miembroOrganizacion.findMany({
+      where: {
+        organizacionId: organizacion.id,
+        estado: 'ACTIVO',
+        plantillaTurnoId: plantilla.id,
+      },
+      include: { usuario: true },
+      orderBy: { usuario: { nombre: 'asc' } },
+    });
+    return PlantillaTurnoResponseDto.desde(plantilla, miembros);
   }
 
   async historial(
