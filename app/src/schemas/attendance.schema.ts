@@ -35,25 +35,6 @@ export const journeySchema = z.object({
 });
 export type Journey = z.infer<typeof journeySchema>;
 
-export const attendanceTodaySchema = z.object({
-  fecha: z.string(),
-  toleranciaMin: z.number().int(),
-  turno: shiftTodaySchema.nullable(),
-  /** `null` mientras el usuario no registra su primera entrada del día. */
-  jornada: journeySchema.nullable(),
-  /** Hora del servidor con la que se calcularon los minutos. */
-  calculadoEn: z.iso.datetime(),
-});
-export type AttendanceToday = z.infer<typeof attendanceTodaySchema>;
-
-export const journeyPageSchema = z.object({
-  data: z.array(journeySchema),
-  page: z.number().int().min(1),
-  pageSize: z.number().int().min(1),
-  total: z.number().int().min(0),
-});
-export type JourneyPage = z.infer<typeof journeyPageSchema>;
-
 /** 1 = lunes … 7 = domingo. */
 export const weekdaySchema = z.number().int().min(1).max(7);
 
@@ -70,6 +51,27 @@ export const shiftTemplateSchema = z.object({
   equipo: z.array(z.object({ id: z.string(), nombre: z.string(), avatarUrl: z.string().nullable() })),
 });
 export type ShiftTemplate = z.infer<typeof shiftTemplateSchema>;
+
+export const attendanceTodaySchema = z.object({
+  fecha: z.string(),
+  toleranciaMin: z.number().int(),
+  turno: shiftTodaySchema.nullable(),
+  /** Plantilla asignada al miembro (días y equipo); `null` si no tiene turno. */
+  plantilla: shiftTemplateSchema.nullable(),
+  /** `null` mientras el usuario no registra su primera entrada del día. */
+  jornada: journeySchema.nullable(),
+  /** Hora del servidor con la que se calcularon los minutos. */
+  calculadoEn: z.iso.datetime(),
+});
+export type AttendanceToday = z.infer<typeof attendanceTodaySchema>;
+
+export const journeyPageSchema = z.object({
+  data: z.array(journeySchema),
+  page: z.number().int().min(1),
+  pageSize: z.number().int().min(1),
+  total: z.number().int().min(0),
+});
+export type JourneyPage = z.infer<typeof journeyPageSchema>;
 
 export const shiftsConfigSchema = z.object({
   plantillas: z.array(shiftTemplateSchema),

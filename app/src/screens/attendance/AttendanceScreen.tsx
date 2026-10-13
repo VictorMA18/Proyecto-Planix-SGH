@@ -4,6 +4,7 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 
 import {
   AccumulatedTimeCard,
+  CurrentShiftCard,
   ExitCard,
   MovementsTimeline,
   QrScannerCard,
@@ -13,13 +14,18 @@ import { MembershipsState } from '@/components/organizations';
 import { ConfirmModal } from '@/components/ui';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
+import { useNow } from '@/hooks/use-now';
 import { useAttendanceToday, useRegisterEntry, useRegisterExit } from '@/services/attendance';
 
-/** Asistencia: escaneo del QR, tiempo acumulado y movimientos de hoy. El ADMIN ve además el acceso a los turnos. */
+/**
+ * Asistencia: mi turno, escaneo del QR, tiempo acumulado y movimientos de hoy. El ADMIN ve además
+ * el acceso a la configuración de turnos.
+ */
 export const AttendanceScreen: React.FC = () => {
   const router = useRouter();
   const { canManageTeam } = useActiveOrganization();
   const today = useAttendanceToday();
+  const now = useNow(60_000);
   const entry = useRegisterEntry();
   const exit = useRegisterExit();
   const [failure, setFailure] = useState<{ title: string; message: string } | null>(null);
@@ -57,6 +63,7 @@ export const AttendanceScreen: React.FC = () => {
           />
         ) : (
           <>
+            <CurrentShiftCard today={today.data} now={now} onDetail={() => router.push('/mi-turno')} />
             {today.data.jornada?.estadoActual === 'DENTRO' ? (
               <ExitCard isBusy={exit.isPending} onExit={() => setConfirmExit(true)} />
             ) : (

@@ -4,7 +4,6 @@ import { RefreshControl, ScrollView, View } from 'react-native';
 
 import {
   ActiveTimeCard,
-  ComingSoonDialog,
   HomeGreeting,
   OnShiftColleagues,
   QuickActions,
@@ -13,7 +12,7 @@ import {
   WeeklyMetrics,
 } from '@/components/home';
 import { MembershipsState } from '@/components/organizations';
-import { COMING_SOON, type ComingSoonFeature } from '@/constants/home';
+import { BroadcastSheet } from '@/components/notifications';
 import { ThemeColors } from '@/constants/theme';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
 import { useNow } from '@/hooks/use-now';
@@ -27,7 +26,7 @@ interface EmployeeHomeProps {
   isSupervisor: boolean;
 }
 
-/** Inicio de EMPLEADO y SUPERVISOR: jornada real de hoy, semana, tareas (ejemplo) y equipo. */
+/** Inicio de EMPLEADO y SUPERVISOR: jornada real de hoy, semana, tareas y equipo. */
 export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
   const router = useRouter();
   const user = useUserDisplay();
@@ -36,7 +35,7 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
   const now = useNow(60_000);
   const colleagues = useOnShiftColleagues();
   const panel = useTeamPanel(isSupervisor);
-  const [feature, setFeature] = useState<ComingSoonFeature | null>(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
 
   return (
     <View className="flex-1">
@@ -77,8 +76,8 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
 
             {isSupervisor ? (
               <QuickActions
-                onNewTask={() => setFeature(COMING_SOON.newTask)}
-                onBroadcast={() => setFeature(COMING_SOON.broadcast)}
+                onNewTask={() => router.push('/tarea/nueva')}
+                onBroadcast={() => setBroadcastOpen(true)}
               />
             ) : null}
 
@@ -107,7 +106,7 @@ export const EmployeeHome: React.FC<EmployeeHomeProps> = ({ isSupervisor }) => {
         <OnShiftColleagues colleagues={colleagues.data} isPending={colleagues.isPending} isError={colleagues.isError} />
       </ScrollView>
 
-      <ComingSoonDialog feature={feature} onClose={() => setFeature(null)} />
+      {isSupervisor ? <BroadcastSheet visible={broadcastOpen} onClose={() => setBroadcastOpen(false)} /> : null}
     </View>
   );
 };

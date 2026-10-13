@@ -4,3 +4,4 @@ export * from './QrScannerCard';
 export * from './ShiftSettingsLink';
 export * from './ExitCard';
 export * from './JourneyCard';
+export * from './CurrentShiftCard';

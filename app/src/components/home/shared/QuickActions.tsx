@@ -41,7 +41,7 @@ interface QuickActionsProps {
 /** Accesos rápidos de supervisores y administradores: nueva tarea y difundir aviso. */
 export const QuickActions: React.FC<QuickActionsProps> = ({ onNewTask, onBroadcast }) => (
   <View className="flex-row gap-3">
-    <QuickAction icon="add-circle-outline" title="Nueva tarea" subtitle="Asignar turno" onPress={onNewTask} />
-    <QuickAction icon="megaphone-outline" title="Difundir aviso" subtitle="Push masivo" onPress={onBroadcast} />
+    <QuickAction icon="add-circle-outline" title="Nueva tarea" subtitle="Asignar a un miembro" onPress={onNewTask} />
+    <QuickAction icon="megaphone-outline" title="Difundir aviso" subtitle="A todo el equipo" onPress={onBroadcast} />
   </View>
 );

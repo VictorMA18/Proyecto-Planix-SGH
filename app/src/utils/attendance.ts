@@ -1,4 +1,4 @@
-import type { AttendanceToday } from '@/schemas/attendance.schema';
+import type { AttendanceToday, ShiftToday } from '@/schemas/attendance.schema';
 import type { ReportRange } from '@/schemas/report.schema';
 
 export type TimelineKind = 'ENTRADA' | 'PAUSA' | 'RETORNO' | 'SALIDA' | 'PREVISTA';
@@ -115,4 +115,13 @@ export function formatShiftTime(time: string): string {
 /** `8.5` → `8,5 h`. */
 export function formatHours(hours: number): string {
   return `${hours.toString().replace('.', ',')} h`;
+}
+
+export type ShiftStatus = 'LIBRE' | 'PROXIMO' | 'EN_CURSO' | 'TERMINADO';
+
+/** En qué punto está el turno de hoy: sin turno hoy, por empezar, en curso o terminado. */
+export function shiftStatus(turno: ShiftToday | null, now: number): ShiftStatus {
+  if (!turno) return 'LIBRE';
+  if (now < new Date(turno.inicio).getTime()) return 'PROXIMO';
+  return now < new Date(turno.fin).getTime() ? 'EN_CURSO' : 'TERMINADO';
 }

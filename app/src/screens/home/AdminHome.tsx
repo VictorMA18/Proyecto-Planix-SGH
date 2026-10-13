@@ -5,14 +5,13 @@ import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import {
   ActiveTimeCard,
   AttendanceQrCard,
-  ComingSoonDialog,
   HomeGreeting,
   OrgTasksCard,
   TodayTasks,
   QuickActions,
   ShiftChip,
 } from '@/components/home';
-import { COMING_SOON, type ComingSoonFeature } from '@/constants/home';
+import { BroadcastSheet } from '@/components/notifications';
 import { ThemeColors } from '@/constants/theme';
 import { useActiveOrganization } from '@/hooks/use-active-membership';
 import { useUserDisplay } from '@/hooks/use-clerk-profile';
@@ -32,7 +31,7 @@ export const AdminHome: React.FC = () => {
   const shift = useEmployeeHome();
   const setStatus = useSetTaskStatus();
   const now = useNow(60_000);
-  const [feature, setFeature] = useState<ComingSoonFeature | null>(null);
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
   const organizationName = organization?.nombre ?? 'tu organización';
 
   return (
@@ -70,8 +69,8 @@ export const AdminHome: React.FC = () => {
         ) : null}
 
         <QuickActions
-          onNewTask={() => setFeature(COMING_SOON.newTask)}
-          onBroadcast={() => setFeature(COMING_SOON.broadcast)}
+          onNewTask={() => router.push('/tarea/nueva')}
+          onBroadcast={() => setBroadcastOpen(true)}
         />
 
         <TeamPresenceSection panel={panel} onOpenReport={() => router.push('/reportes')} />
@@ -92,7 +91,7 @@ export const AdminHome: React.FC = () => {
         ) : null}
       </ScrollView>
 
-      <ComingSoonDialog feature={feature} onClose={() => setFeature(null)} />
+      <BroadcastSheet visible={broadcastOpen} onClose={() => setBroadcastOpen(false)} />
     </View>
   );
 };
