@@ -1,15 +1,18 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ClerkModule } from './clerk/clerk.module';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
 import { RelojModule } from './common/reloj/reloj.module';
+import { MensajeriaModule } from './mensajeria/mensajeria.module';
 import { AsistenciaModule } from './modules/asistencia/asistencia.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EquipoModule } from './modules/equipo/equipo.module';
 import { InicioModule } from './modules/inicio/inicio.module';
 import { InvitacionesModule } from './modules/invitaciones/invitaciones.module';
 import { MiembrosModule } from './modules/miembros/miembros.module';
+import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 import { OrganizacionesModule } from './modules/organizaciones/organizaciones.module';
 import { QrModule } from './modules/qr/qr.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
@@ -22,6 +25,8 @@ import { PrismaModule } from './prisma/prisma.module';
   imports: [
     PrismaModule,
     RelojModule,
+    ScheduleModule.forRoot(),
+    MensajeriaModule,
     ClerkModule,
     CloudinaryModule,
     UsuariosModule,
@@ -36,6 +41,7 @@ import { PrismaModule } from './prisma/prisma.module';
     InicioModule,
     ReportesModule,
     TareasModule,
+    NotificacionesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
