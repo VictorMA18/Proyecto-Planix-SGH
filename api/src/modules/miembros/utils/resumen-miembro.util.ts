@@ -1,9 +1,10 @@
 import { porcentaje } from '../../../common/utils/jornada.util';
 import {
-  diaSemana,
+  diasDeTurnoEntre,
   diasEntre,
   lunesDe,
   sumarDias,
+  ultimoDiaDelMes,
 } from '../../../common/utils/zona-horaria.util';
 
 /** Una jornada ya reducida a lo que usan las métricas. */
@@ -22,25 +23,13 @@ export interface MetricasMes {
 
 const unDecimal = (valor: number) => Math.round(valor * 10) / 10;
 
-/** Último día del mes de `fecha` (`YYYY-MM-DD`). */
-export function ultimoDiaDelMes(fecha: string): string {
-  const [anio, mes] = fecha.split('-').map(Number);
-  const siguiente =
-    mes === 12
-      ? `${anio + 1}-01-01`
-      : `${anio}-${String(mes + 1).padStart(2, '0')}-01`;
-  return sumarDias(siguiente, -1);
-}
-
-/** Días del mes que caen en los días aplicables del turno. */
+/** Días del mes de `fecha` que caen en los días aplicables del turno. */
 export function diasDeTurnoEnElMes(fecha: string, dias: number[]): number {
-  const primero = `${fecha.slice(0, 7)}-01`;
-  const total = diasEntre(primero, ultimoDiaDelMes(fecha)) + 1;
-  let cuenta = 0;
-  for (let i = 0; i < total; i++) {
-    if (dias.includes(diaSemana(sumarDias(primero, i)))) cuenta++;
-  }
-  return cuenta;
+  return diasDeTurnoEntre(
+    `${fecha.slice(0, 7)}-01`,
+    ultimoDiaDelMes(fecha),
+    dias,
+  );
 }
 
 /** Primer día que hay que leer para las métricas: el inicio del mes o el lunes anterior. */

@@ -2,8 +2,8 @@ import {
   desdeParaMetricas,
   diasDeTurnoEnElMes,
   metricasDelMes,
-  ultimoDiaDelMes,
 } from './resumen-miembro.util';
+import { ultimoDiaDelMes } from '../../../common/utils/zona-horaria.util';
 
 describe('resumen del miembro', () => {
   it('calcula el último día y los días de turno del mes', () => {

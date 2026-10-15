@@ -18,6 +18,7 @@ import {
   fechaLocal,
   instanteLocal,
   sumarDias,
+  ultimoDiaDelMes,
 } from '../../../common/utils/zona-horaria.util';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AccesoOrganizacionService } from '../../organizaciones/services/acceso-organizacion.service';
@@ -25,7 +26,6 @@ import { ResumenMiembroResponseDto } from '../dto/resumen-miembro-response.dto';
 import {
   desdeParaMetricas,
   metricasDelMes,
-  ultimoDiaDelMes,
 } from '../utils/resumen-miembro.util';
 
 /**

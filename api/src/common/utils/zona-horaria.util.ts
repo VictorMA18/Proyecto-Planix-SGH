@@ -107,6 +107,34 @@ export function diasEntre(desde: string, hasta: string): number {
   );
 }
 
+/** Último día del mes de `fecha` (`YYYY-MM-DD`). */
+export function ultimoDiaDelMes(fecha: string): string {
+  const [anio, mes] = fecha.split('-').map(Number);
+  const siguiente =
+    mes === 12
+      ? `${anio + 1}-01-01`
+      : `${anio}-${String(mes + 1).padStart(2, '0')}-01`;
+  return sumarDias(siguiente, -1);
+}
+
+/** Fechas de `desde` a `hasta`, ambas incluidas (vacío si el rango está invertido). */
+export function fechasEntre(desde: string, hasta: string): string[] {
+  const total = diasEntre(desde, hasta) + 1;
+  return Array.from({ length: Math.max(0, total) }, (_, i) =>
+    sumarDias(desde, i),
+  );
+}
+
+/** Días del rango que caen en los días de la semana indicados (1 = lunes … 7 = domingo). */
+export function diasDeTurnoEntre(
+  desde: string,
+  hasta: string,
+  dias: number[],
+): number {
+  return fechasEntre(desde, hasta).filter((f) => dias.includes(diaSemana(f)))
+    .length;
+}
+
 /** Valor para columnas `DATE` de Prisma (medianoche UTC de esa fecha). */
 export function comoFechaDb(fecha: string): Date {
   return new Date(`${fecha}T00:00:00Z`);
