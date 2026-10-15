@@ -4,6 +4,6 @@ export * from './organization.schema';
 export * from './team.schema';
 export * from './home.schema';
 export * from './attendance.schema';
-export * from './report.schema';
+export * from './metrics.schema';
 export * from './task.schema';
 export * from './notification.schema';

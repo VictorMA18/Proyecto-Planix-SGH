@@ -1,5 +1,4 @@
 import type { AttendanceToday, ShiftToday } from '@/schemas/attendance.schema';
-import type { ReportRange } from '@/schemas/report.schema';
 
 export type TimelineKind = 'ENTRADA' | 'PAUSA' | 'RETORNO' | 'SALIDA' | 'PREVISTA';
 
@@ -65,28 +64,6 @@ export function liveWorkedMs(
 export function formatMinutes(minutes: number): string {
   const total = Math.max(0, Math.floor(minutes));
   return `${Math.floor(total / 60)}h ${String(total % 60).padStart(2, '0')}m`;
-}
-
-const isoDate = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-/** Fechas `desde` y `hasta` (`YYYY-MM-DD`, calendario del dispositivo) de un rango rápido. */
-export function reportRangeDates(range: ReportRange, today = new Date()): { desde: string; hasta: string } {
-  const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const monday = new Date(day);
-  monday.setDate(day.getDate() - ((day.getDay() + 6) % 7));
-
-  if (range === 'ESTE_MES') {
-    return { desde: isoDate(new Date(day.getFullYear(), day.getMonth(), 1)), hasta: isoDate(day) };
-  }
-  if (range === 'SEMANA_PASADA') {
-    const start = new Date(monday);
-    start.setDate(monday.getDate() - 7);
-    const end = new Date(monday);
-    end.setDate(monday.getDate() - 1);
-    return { desde: isoDate(start), hasta: isoDate(end) };
-  }
-  return { desde: isoDate(monday), hasta: isoDate(day) };
 }
 
 /** `2026-10-09` → `vie 9 oct` (sin desfase de zona horaria). */

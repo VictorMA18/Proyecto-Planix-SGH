@@ -23,7 +23,7 @@ export default function AppLayout() {
       <Stack.Screen name="notificaciones" />
       <Stack.Screen name="historial" />
       <Stack.Screen name="mi-turno" />
-      <Stack.Screen name="reportes" />
+      <Stack.Screen name="metricas/colaboradores" />
       <Stack.Screen name="turnos/index" />
       <Stack.Screen name="turnos/nuevo" />
       <Stack.Screen name="turnos/[turnoId]/index" />

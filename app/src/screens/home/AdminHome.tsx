@@ -73,7 +73,7 @@ export const AdminHome: React.FC = () => {
           onBroadcast={() => setBroadcastOpen(true)}
         />
 
-        <TeamPresenceSection panel={panel} onOpenReport={() => router.push('/reportes')} />
+        <TeamPresenceSection panel={panel} onOpenReport={() => router.push('/metricas')} />
 
         {panel.data ? <OrgTasksCard tareas={panel.data.tareasOrganizacion} /> : null}
 
