@@ -34,7 +34,7 @@ tags:
   - name: Notificaciones
     description: Notificaciones del usuario
   - name: Reportes
-    description: Reportes de asistencia
+    description: Métricas, reportes de asistencia y reportes exportables
 
 security:
   - bearerAuth: []
@@ -1493,6 +1493,112 @@ paths:
         '403':
           description: El usuario no es ADMIN de la organización
 
+  # =====================================================================
+  # MÉTRICAS (pestaña «Métricas» y reporte exportable)
+  # =====================================================================
+  /organizaciones/{organizacionId}/metricas:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Reportes]
+      summary: Métricas de horas, puntualidad y horas extra del equipo o de un miembro en una semana o un mes
+      description: >
+        Sin `miembroId` (o con el de otro miembro) solo lo pueden consultar ADMIN y SUPER_ADMIN.
+        Cualquier miembro puede consultar las suyas pasando su propio `miembroId`. Los cálculos
+        (horas trabajadas, días programados, horas extra, puntualidad) se hacen en el backend.
+      parameters:
+        - $ref: '#/components/parameters/TipoPeriodo'
+        - $ref: '#/components/parameters/FechaPeriodo'
+        - $ref: '#/components/parameters/MiembroMetricas'
+      responses:
+        '200':
+          description: Métricas del periodo
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetricasPeriodo'
+        '400':
+          description: Periodo o fecha inválidos
+        '403':
+          description: Pidió las métricas del equipo o de otro miembro sin ser ADMIN
+        '404':
+          description: Organización inexistente, el usuario no es miembro o el miembro no es de la organización
+
+  /organizaciones/{organizacionId}/metricas/colaboradores:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Reportes]
+      summary: Resumen por colaborador del periodo, paginado (solo ADMIN)
+      description: Ordenado por horas trabajadas (de mayor a menor) y luego por nombre.
+      parameters:
+        - $ref: '#/components/parameters/TipoPeriodo'
+        - $ref: '#/components/parameters/FechaPeriodo'
+        - name: q
+          in: query
+          description: Texto a buscar en nombre o correo (ignora mayúsculas y acentos)
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Página de colaboradores
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginaColaboradores'
+        '400':
+          description: Parámetros inválidos
+        '403':
+          description: El usuario no es ADMIN de la organización
+        '404':
+          description: Organización inexistente o el usuario no es miembro
+
+  /organizaciones/{organizacionId}/metricas/reporte:
+    parameters:
+      - $ref: '#/components/parameters/OrganizacionId'
+    get:
+      tags: [Reportes]
+      summary: Descargar el reporte del periodo en PDF o Excel
+      description: >
+        Incluye el resumen de horas, el gráfico del periodo, el desglose por colaborador (o el
+        registro diario si es individual) y las marcas de QR. Mismos permisos que `/metricas`.
+      parameters:
+        - name: formato
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [PDF, XLSX]
+        - $ref: '#/components/parameters/TipoPeriodo'
+        - $ref: '#/components/parameters/FechaPeriodo'
+        - $ref: '#/components/parameters/MiembroMetricas'
+      responses:
+        '200':
+          description: Archivo del reporte, enviado como adjunto (Content-Disposition attachment)
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Formato, periodo o fecha inválidos
+        '403':
+          description: Pidió el reporte del equipo o de otro miembro sin ser ADMIN
+        '404':
+          description: Organización inexistente, el usuario no es miembro o el miembro no es de la organización
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1528,6 +1634,28 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+    TipoPeriodo:
+      name: periodo
+      in: query
+      required: true
+      schema:
+        type: string
+        enum: [SEMANA, MES]
+    FechaPeriodo:
+      name: fecha
+      in: query
+      required: true
+      description: Cualquier día del periodo (`YYYY-MM-DD`); la semana va de lunes a domingo
+      schema:
+        type: string
+        format: date
+    MiembroMetricas:
+      name: miembroId
+      in: query
+      description: Métricas individuales de un miembro (sin él, las del equipo)
+      schema:
+        type: string
+        format: uuid
 
   schemas:
 
@@ -2803,3 +2931,238 @@ components:
               minutosTarde:
                 type: integer
 
+    ResumenColaborador:
+      type: object
+      properties:
+        miembroId:
+          type: string
+          format: uuid
+        nombre:
+          type: string
+        email:
+          type: string
+          format: email
+        avatarUrl:
+          type: string
+          nullable: true
+        rol:
+          $ref: '#/components/schemas/RolMiembro'
+        turno:
+          type: string
+          nullable: true
+        diasTrabajados:
+          type: integer
+        asistenciaPct:
+          type: number
+          nullable: true
+          description: Días con jornada / días de turno hasta hoy (null sin turno)
+        puntualidadPct:
+          type: number
+          nullable: true
+          description: Jornadas puntuales / jornadas con turno evaluado
+        horas:
+          type: number
+          description: Horas trabajadas (1 decimal)
+        horasExtra:
+          type: number
+          description: Horas por encima de la duración del turno, sumadas por jornada
+        metaAlcanzada:
+          type: boolean
+          description: Si las horas trabajadas alcanzan las planificadas del periodo
+
+    PaginaColaboradores:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResumenColaborador'
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+
+    RegistroDiario:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date
+        conTurno:
+          type: boolean
+          description: Si ese día le tocaba turno
+        entrada:
+          type: string
+          format: date-time
+          nullable: true
+        salida:
+          type: string
+          format: date-time
+          nullable: true
+        horas:
+          type: number
+        puntual:
+          type: boolean
+          nullable: true
+        minutosTarde:
+          type: integer
+          nullable: true
+        horasExtra:
+          type: number
+        marcas:
+          type: integer
+          description: Marcas de QR (movimientos) del día
+        escaneos:
+          type: array
+          description: Cada lectura del QR del día, en orden
+          items:
+            type: object
+            properties:
+              tipo:
+                $ref: '#/components/schemas/TipoMovimientoAsistencia'
+              hora:
+                type: string
+                format: date-time
+
+    MetricasPeriodo:
+      type: object
+      properties:
+        periodo:
+          type: object
+          properties:
+            tipo:
+              type: string
+              enum: [SEMANA, MES]
+            desde:
+              type: string
+              format: date
+            hasta:
+              type: string
+              format: date
+        alcance:
+          type: string
+          enum: [EQUIPO, MIEMBRO]
+        miembro:
+          type: object
+          nullable: true
+          description: Solo en el alcance MIEMBRO
+          properties:
+            miembroId:
+              type: string
+              format: uuid
+            nombre:
+              type: string
+            avatarUrl:
+              type: string
+              nullable: true
+            rol:
+              $ref: '#/components/schemas/RolMiembro'
+            turno:
+              type: string
+              nullable: true
+        miembrosActivos:
+          type: integer
+          description: Miembros incluidos en el cálculo (1 en el alcance MIEMBRO)
+        tendencia:
+          type: object
+          properties:
+            promedioDiarioHoras:
+              type: number
+              description: Horas trabajadas / días con actividad
+            variacionPct:
+              type: number
+              nullable: true
+              description: Variación de horas frente al periodo anterior (null si el anterior no tuvo horas)
+            metaDiariaHoras:
+              type: number
+              description: Duración promedio del turno por colaborador
+            barras:
+              type: array
+              description: 7 barras (lunes a domingo) en SEMANA; una por semana en MES
+              items:
+                type: object
+                properties:
+                  etiqueta:
+                    type: string
+                    example: L
+                  desde:
+                    type: string
+                    format: date
+                  hasta:
+                    type: string
+                    format: date
+                  horas:
+                    type: number
+            mejor:
+              type: object
+              nullable: true
+              properties:
+                etiqueta:
+                  type: string
+                  example: Viernes
+                horas:
+                  type: number
+                variacionPct:
+                  type: number
+                  nullable: true
+        horas:
+          type: object
+          properties:
+            trabajadas:
+              type: number
+            planificadas:
+              type: number
+            restantes:
+              type: number
+            cumplimientoPct:
+              type: number
+              nullable: true
+        puntualidad:
+          type: object
+          properties:
+            porcentaje:
+              type: number
+              nullable: true
+            aTiempo:
+              type: integer
+            evaluadas:
+              type: integer
+            nivel:
+              type: string
+              nullable: true
+              enum: [EXCELENTE, BUENO, MEJORABLE]
+        horasExtra:
+          type: object
+          properties:
+            total:
+              type: number
+            hoy:
+              type: number
+        colaboradores:
+          type: object
+          nullable: true
+          description: Solo en el alcance EQUIPO
+          properties:
+            total:
+              type: integer
+            top:
+              type: array
+              items:
+                $ref: '#/components/schemas/ResumenColaborador'
+        registroDiario:
+          type: array
+          nullable: true
+          description: Solo en el alcance MIEMBRO; un elemento por día del periodo hasta hoy
+          items:
+            $ref: '#/components/schemas/RegistroDiario'
+        tareas:
+          type: object
+          nullable: true
+          description: Solo en el alcance MIEMBRO; tareas asignadas que empiezan en el periodo
+          properties:
+            completadas:
+              type: integer
+            total:
+              type: integer

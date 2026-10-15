@@ -69,6 +69,20 @@ La pestaña Inicio cambia según el rol del usuario en la organización activa. 
 1. **Historial** (`GET /asistencia/historial`): cada persona ve sus jornadas, de la más reciente a la más antigua, con entrada, salida, minutos trabajados y puntualidad.
 2. **Reporte** (`GET /organizaciones/{id}/reportes/asistencia`, solo `ADMIN`): por miembro, en un rango de hasta 92 días: días trabajados, minutos trabajados (suma de tramos `ENTRADA → SALIDA`, calculada en `ReportesService`), puntuales, tardanzas y minutos de retraso. Incluye a todos los miembros activos, aunque no hayan trabajado, y a los inactivos con jornadas en el rango.
 
+### 5.4.1. Pestaña «Métricas» y reporte exportable
+1. **Quién ve qué.** ADMIN y SUPER_ADMIN ven el total del equipo y pueden elegir a cualquier miembro (ellos primero). SUPERVISOR y EMPLEADO solo ven sus propias métricas. Lo valida `MetricasService` (`403` para el equipo o para otro miembro).
+2. **Periodo.** Semana (lunes a domingo) o mes que contiene la `fecha` pedida, en la zona horaria de la organización. Se lee en una sola consulta el periodo y el anterior, para comparar.
+3. **Cálculos** (`metricas.util.ts`, todo en el backend):
+   - **Horas trabajadas:** suma de tramos `ENTRADA → SALIDA` de cada jornada.
+   - **Horas planificadas:** duración del turno de la plantilla × días de turno del periodo, sumado por miembro.
+   - **Horas extra:** por jornada, lo que excede la duración del turno guardada al entrar; sin turno ese día no hay extra.
+   - **Asistencia %:** días de turno con jornada / días de turno transcurridos hasta hoy.
+   - **Puntualidad %:** jornadas puntuales / jornadas con turno evaluado. Nivel: Excelente (≥ 95), Bueno (≥ 85) o Mejorable.
+   - **Tendencia:** horas por día (semana) o por semana (mes), promedio por día con actividad y variación frente al periodo anterior. Si el periodo está en curso, el anterior se compara solo hasta el mismo punto.
+   - **Meta alcanzada:** las horas trabajadas cubren las planificadas hasta hoy.
+4. **Equipo:** muestra los tres colaboradores con más horas y «Ver todos» lista el resto paginado (`/metricas/colaboradores`). **Individual:** en su lugar, el registro diario (entrada, salida, horas, estado y marcas de QR) y las tareas del periodo.
+5. **Reporte** (`/metricas/reporte`): con los mismos datos y permisos, `ReportePdfService` (pdfkit) arma un PDF A4 con indicadores, gráfico, desglose y anexo de marcas de QR, y `ReporteExcelService` (exceljs) un libro con las hojas «Resumen», «Colaboradores» o «Registro diario» y «Marcas QR».
+
 ### 5.5. Pestaña «Tareas»
 1. **Calendario:** todos los roles ven las tareas de la organización (también las asignadas a otros, ver `05-autenticacion-y-autorizacion.md`), con un punto por prioridad en cada día (urgente, normal y baja), filtros por **miembro** y **prioridad**, pestañas por estado (Todas, Pendientes, En progreso, En revisión, Completadas y Vencidas) y orden por hora o prioridad. Una tarea está **vencida** si no se completó y ya pasó su hora de fin.
 2. **Flujo de la tarea:** Por hacer → En progreso → Revisión → Completada. Cualquier miembro, también EMPLEADO, lo mueve desde el detalle (o con la casilla de la tarjeta, que la completa o la reabre) y marca las subtareas, sin pasar por la edición.

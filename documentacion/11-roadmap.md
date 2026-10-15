@@ -25,6 +25,8 @@
 - Push mobile (Expo, requiere development build en Android) y web (Web Push con service worker), encolado en RabbitMQ.
 - Perfil del miembro con credencial y métricas reales del mes.
 
-### Fase 5 — Reportes y permisos avanzados
-- Reportes exportables (PDF/Excel).
-- Asignación de tareas a subconjuntos de usuarios (no solo a toda la organización).
+### Fase 5 — Reportes y permisos avanzados ✅
+- Pestaña «Métricas»: horas frente a lo planificado, puntualidad, horas extra y tendencia por semana o mes, del equipo (ADMIN) o individual (cualquier rol, las propias).
+- Detalle de colaboradores con «Ver todos» paginado y registro diario en la vista individual.
+- Reportes exportables (PDF/Excel) generados en el backend.
+- Asignación de tareas a subconjuntos de usuarios (desde la Fase 3).

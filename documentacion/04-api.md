@@ -40,7 +40,7 @@ Importar `api/openapi.yaml` en Swagger Editor, Postman o Insomnia. En NestJS se 
 | Asistencia | Entrada, salida, jornada de hoy, historial |
 | Tareas | CRUD de tareas, adjuntos (`multipart/form-data`), estado de asignación |
 | Notificaciones | Bandeja (filtrable por organización), marcar una o todas como leídas, preferencias del usuario, difusión a la organización, registro y baja de push tokens, clave VAPID pública |
-| Reportes | Horas trabajadas por usuario y rango de fechas |
+| Reportes | Métricas de la pestaña «Métricas» (equipo o individual), colaboradores, reporte PDF/Excel y horas por rango de fechas |
 
 ## Regla contract-first
 
@@ -60,5 +60,6 @@ Implementados en el backend:
 
 - **Fase 4 (notificaciones):** `GET /notificaciones?organizacionId&leida&page&pageSize`, `PATCH /notificaciones/{id}/leer` (`404` si es de otro usuario), `PATCH /notificaciones/leer-todas?organizacionId`, `GET|PUT /me/preferencias-notificacion`, `POST /organizaciones/{id}/notificaciones/difusion` (avisos de ADMIN o SUPERVISOR a todo el equipo o a los `miembroIds` elegidos), `POST|DELETE /push-tokens` y `GET /push-tokens/clave-web` (clave VAPID pública; `503` si no está configurada).
 - **Perfil del miembro:** `GET /organizaciones/{id}/miembros/{miembroId}/resumen` (credencial y métricas del mes; lo ven ADMIN, SUPER_ADMIN, SUPERVISOR y el propio miembro).
+- **Fase 5 (métricas y reportes):** `GET /organizaciones/{id}/metricas?periodo=SEMANA|MES&fecha&miembroId` (equipo u individual), `GET /organizaciones/{id}/metricas/colaboradores` (paginado, con búsqueda) y `GET /organizaciones/{id}/metricas/reporte?formato=PDF|XLSX` (archivo con `Content-Disposition: attachment`). El equipo y las métricas de otro miembro solo los ve ADMIN o SUPER_ADMIN (`403`); cualquier miembro puede ver y descargar las suyas.
 
 Todo el contrato está implementado.
