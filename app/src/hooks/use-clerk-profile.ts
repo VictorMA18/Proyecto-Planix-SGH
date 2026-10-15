@@ -40,7 +40,7 @@ export function useUserDisplay() {
     'U';
 
   // Con contraseña habilitada se gestionan credenciales propias; una cuenta creada solo
-  // con Google no tiene contraseña ni 2FA en PLANYX.
+  // con Google no tiene contraseña ni 2FA en Planix.
   const hasPassword = !!user?.passwordEnabled;
   const hasGoogle = !!user?.externalAccounts?.some((account) =>
     String(account.provider).includes('google')

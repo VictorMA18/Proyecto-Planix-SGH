@@ -3,11 +3,12 @@ import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, View, Text, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { cssInterop } from 'react-native-css-interop';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import {
   useFonts,
@@ -20,7 +21,13 @@ import {
   DMSans_700Bold_Italic,
 } from '@expo-google-fonts/dm-sans';
 
+import { AppLoadingScreen } from '@/components/ui/AppLoadingScreen';
+
 import { QueryProvider } from '../providers/QueryProvider';
+
+// La pantalla de carga nativa (logo de Planix) sigue visible hasta que cargan las fuentes; después
+// la continúa `AppLoadingScreen` mientras Clerk prepara la sesión.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 cssInterop(SafeAreaView, { className: 'style' });
 
@@ -59,16 +66,7 @@ function InitialLayout() {
     }
   }, [isLoaded, isSignedIn, segments]);
 
-  if (!isLoaded) {
-    return (
-      <View className="flex-1 justify-center items-center bg-screenBg">
-        <ActivityIndicator size="large" color="#6B46C1" />
-        <Text className="text-neutral-muted mt-3 text-base font-sans">
-          Inicializando PLANYX...
-        </Text>
-      </View>
-    );
-  }
+  if (!isLoaded) return <AppLoadingScreen />;
 
   return <Slot />;
 }
@@ -86,13 +84,12 @@ export default function RootLayout() {
     'DM Sans': DMSans_400Regular,
   });
 
-  if (!fontsLoaded) {
-    return (
-      <View className="flex-1 justify-center items-center bg-screenBg">
-        <ActivityIndicator size="large" color="#6B46C1" />
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded]);
+
+  // Mientras tanto se ve la pantalla de carga nativa.
+  if (!fontsLoaded) return null;
 
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>

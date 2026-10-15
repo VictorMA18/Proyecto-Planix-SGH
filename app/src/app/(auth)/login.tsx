@@ -175,7 +175,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Logo Emblem PLANYX */}
+          {/* Header Logo Emblem Planix */}
           <AppLogoHeader
             title="Bienvenido de vuelta"
             subtitle="Ingresa tus credenciales para acceder a tus turnos y tareas."

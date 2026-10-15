@@ -42,7 +42,7 @@ export const InviteCodeModal: React.FC<InviteCodeModalProps> = ({
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Únete a ${organizationName} en PLANYX con este código de invitación: ${code.codigo}`,
+        message: `Únete a ${organizationName} en Planix con este código de invitación: ${code.codigo}`,
       });
     } catch {
       // Compartir no está disponible en este dispositivo o se canceló: no es un error.

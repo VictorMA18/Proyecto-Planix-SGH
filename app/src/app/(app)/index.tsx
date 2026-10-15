@@ -101,7 +101,7 @@ export default function OrganizationsScreen() {
         >
           <Ionicons name="sparkles-outline" size={20} color={ThemeColors.primary} />
           <View className="flex-1 ml-3">
-            <Text className="text-xs font-bold text-neutral">Gestión Unificada PLANYX</Text>
+            <Text className="text-xs font-bold text-neutral">Gestión Unificada Planix</Text>
             <Text className="text-xs text-neutral-muted">
               Tus fichajes y permisos se sincronizan en la nube.
             </Text>

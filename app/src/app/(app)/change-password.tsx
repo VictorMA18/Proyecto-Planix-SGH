@@ -102,7 +102,7 @@ export default function ChangePasswordScreen() {
   return (
     <FormScreenLayout title="Cambiar contraseña">
       <Text className="text-sm text-neutral-muted mb-5">
-        Cambia la contraseña con la que accedes a PLANYX. Debe tener al menos {PASSWORD_MIN_LENGTH}{' '}
+        Cambia la contraseña con la que accedes a Planix. Debe tener al menos {PASSWORD_MIN_LENGTH}{' '}
         caracteres.
       </Text>
 

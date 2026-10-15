@@ -50,7 +50,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-screenBg" edges={['left', 'right']}>
-      <ScreenHeader title="Mi Cuenta PLANYX" onBack={() => goBack()} />
+      <ScreenHeader title="Mi Cuenta Planix" onBack={() => goBack()} />
 
       <ScrollView
         className="flex-1"
