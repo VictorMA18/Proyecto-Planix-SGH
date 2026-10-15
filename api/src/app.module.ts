@@ -15,6 +15,7 @@ import { MiembrosModule } from './modules/miembros/miembros.module';
 import { NotificacionesModule } from './modules/notificaciones/notificaciones.module';
 import { OrganizacionesModule } from './modules/organizaciones/organizaciones.module';
 import { QrModule } from './modules/qr/qr.module';
+import { MetricasModule } from './modules/metricas/metricas.module';
 import { ReportesModule } from './modules/reportes/reportes.module';
 import { TareasModule } from './modules/tareas/tareas.module';
 import { TurnosModule } from './modules/turnos/turnos.module';
@@ -40,6 +41,7 @@ import { PrismaModule } from './prisma/prisma.module';
     AsistenciaModule,
     InicioModule,
     ReportesModule,
+    MetricasModule,
     TareasModule,
     NotificacionesModule,
   ],

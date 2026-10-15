@@ -13,7 +13,8 @@ async function bootstrap() {
   // rawBody: la firma de los webhooks de Clerk (Svix) se valida sobre el cuerpo sin re-serializar.
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('v1');
-  app.enableCors();
+  // La web lee el nombre del reporte descargado de `Content-Disposition`.
+  app.enableCors({ exposedHeaders: ['Content-Disposition'] });
   configureApp(app);
 
   // Consumidor de la cola de push (documentacion/06, flujo 9). Sin RabbitMQ la API funciona igual:
