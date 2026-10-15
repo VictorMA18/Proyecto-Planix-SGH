@@ -11,29 +11,55 @@ interface OptionRowProps {
   onPress: () => void;
   /** Avatar, icono o punto a la izquierda. */
   leading?: React.ReactNode;
+  /** Etiqueta corta junto al nombre (p. ej. «Tú»). */
+  badge?: string;
 }
 
-/** Opción de una lista de selección única (dentro de una hoja inferior). */
-export const OptionRow: React.FC<OptionRowProps> = ({ label, description, selected, onPress, leading }) => (
+/**
+ * Opción de una lista de selección única (dentro de una hoja inferior). Las clases son fijas y el
+ * fondo va en `style`, nunca transparente, con `key` para remontar: en Android, una vista que pasa
+ * de transparente a un color pierde el redondeado.
+ */
+export const OptionRow: React.FC<OptionRowProps> = ({ label, description, selected, onPress, leading, badge }) => (
   <Pressable
     accessibilityRole="radio"
     accessibilityState={{ selected }}
-    accessibilityLabel={description ? `${label}, ${description}` : label}
+    accessibilityLabel={[label, badge, description].filter(Boolean).join(', ')}
     onPress={onPress}
-    style={{ borderCurve: 'continuous' }}
-    className={`min-h-14 flex-row items-center rounded-2xl px-3 active:bg-tertiary ${selected ? 'bg-tertiary' : ''}`}
+    className="active:opacity-80"
   >
-    {leading ? <View className="mr-3">{leading}</View> : null}
-    <View className="flex-1">
-      <Text numberOfLines={1} className={`text-base ${selected ? 'font-extrabold text-primary' : 'font-semibold text-neutral'}`}>
-        {label}
-      </Text>
-      {description ? (
-        <Text numberOfLines={1} className="text-xs text-neutral-muted">
-          {description}
-        </Text>
-      ) : null}
+    <View
+      key={selected ? 'on' : 'off'}
+      style={{
+        borderCurve: 'continuous',
+        borderRadius: 16,
+        backgroundColor: selected ? ThemeColors.tertiary : ThemeColors.cardBg,
+      }}
+      className="min-h-14 flex-row items-center px-3"
+    >
+      {leading ? <View className="mr-3">{leading}</View> : null}
+      <View className="flex-1">
+        <View className="flex-row items-center gap-2">
+          <Text
+            numberOfLines={1}
+            style={{ color: selected ? ThemeColors.primary : ThemeColors.neutral }}
+            className="flex-shrink text-base font-bold"
+          >
+            {label}
+          </Text>
+          {badge ? (
+            <View style={{ backgroundColor: ThemeColors.primary }} className="rounded-full px-2 py-0.5">
+              <Text className="text-[10px] font-bold text-white">{badge}</Text>
+            </View>
+          ) : null}
+        </View>
+        {description ? (
+          <Text numberOfLines={1} className="text-xs text-neutral-muted">
+            {description}
+          </Text>
+        ) : null}
+      </View>
+      {selected ? <Ionicons name="checkmark-circle" size={22} color={ThemeColors.primary} /> : null}
     </View>
-    {selected ? <Ionicons name="checkmark-circle" size={22} color={ThemeColors.primary} /> : null}
   </Pressable>
 );

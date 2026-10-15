@@ -3,9 +3,9 @@ import React, { useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { MembershipsState } from '@/components/organizations';
+import { MemberPickerSheet } from '@/components/team';
 import {
   DayTasksHeader,
-  MemberFilterSheet,
   MonthCalendar,
   PriorityFilterSheet,
   TaskCard,
@@ -166,8 +166,10 @@ export const TasksScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      <MemberFilterSheet
+      <MemberPickerSheet
         visible={memberSheet}
+        title="Filtrar por miembro"
+        allLabel="Todos los miembros"
         members={members.data}
         isLoading={members.isPending}
         value={memberId}
