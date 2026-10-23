@@ -4,6 +4,7 @@ import React, { useRef, useState } from 'react';
 import { Linking, Platform, Pressable, Text, View } from 'react-native';
 
 import { AppButton } from '@/components/ui';
+import '@/utils/qr-scanner-setup';
 
 const CORNER = 'absolute w-9 h-9 border-white';
 
